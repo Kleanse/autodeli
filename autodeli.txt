@@ -1,43 +1,44 @@
-*autodelim.txt*	For Vim version 8.2	Last change: 2021 Nov 23
+*autodeli.txt*	For Vim version 8.2	Last change: 2021 Nov 30
 
 	      Automatically insert and delete matching delimiters
 
-This document describes the functions defined in autodelim.vim and when
+This document describes the functions defined in autodeli.vim and when
 matching delimiters are completed and deleted automatically.
 
-1.  Function list		    |autodelim-function-list|
-2.  Function documentation	    |autodelim-functions|
-3.  Technical details		    |autodelim-verbose|
-    3.1 Functions			|autodelim-func-details|
+1.  Function list		    |autodeli-function-list|
+2.  Function documentation	    |autodeli-functions|
+3.  Technical details		    |autodeli-verbose|
+    3.1 Functions			|autodeli-func-details|
 
 ==============================================================================
-1.	Function list				*autodelim-function-list*
+1.	Function list				*autodeli-function-list*
 
-Auto-completion:				*autodelim-auto-functions*
+Auto-completion:				*autodeli-auto-functions*
 	s:autocomplete_delimiters()	insert a pair of delimiters at once
 	s:autocomplete_quotes()		insert a pair of quotes at once if the
-					given quote is entered outside a string
+					given quote is entered outside a
+					string
 	s:skip_closing()		skip a closing delimiter if no
 					characters or only whitespace separate
 					it and the cursor
 
-Buffers:				*autodelim-buffer-functions*
+Buffers:				*autodeli-buffer-functions*
 	s:matched()			gets the matching delimiter of the
 					delimiter at the given byte index
 
-Overload:					*autodelim-overload-functions*
-	s:autodelim_eat()		overload a backspace character for
+Overload:					*autodeli-overload-functions*
+	s:autodeli_eat()		overload a backspace character for
 					Insert mode
-	s:autodelim_brace()		overload { for Insert mode
-	s:autodelim_enter()		overload <CR> for Insert mode
-	s:autodelim_tab()		overload <Tab> for Insert mode
+	s:autodeli_brace()		overload { for Insert mode
+	s:autodeli_enter()		overload <CR> for Insert mode
+	s:autodeli_tab()		overload <Tab> for Insert mode
 
 ==============================================================================
-2.	Function documentation			*autodelim-functions*
+2.	Function documentation			*autodeli-functions*
 
-See |autodelim-function-list| for a lexically ordered list of categories, each
+See |autodeli-function-list| for a lexically ordered list of categories, each
 of which contains functions sorted in the same fashion. Also see
-|autodelim-func-details| for more comprehensive descriptions of certain
+|autodeli-func-details| for more comprehensive descriptions of certain
 functions.
 
 s:autocomplete_delimiters({opening}, {closing})	*s:autocomplete_delimiters()*
@@ -63,7 +64,7 @@ s:autocomplete_quotes({quote})			*s:autocomplete_quotes()*
 		 |s:skip_closing()| so long as the preceding character is not
 		 a backslash. This function only works in Insert mode.
 
-s:autodelim_eat({delchar})				*s:autodelim_eat()*
+s:autodeli_eat({delchar})				*s:autodeli_eat()*
 	Expects: type({delchar}) == v:t_string
 	Ensures: returns a string comprising characters to be interpreted by
 		 the {rhs} of a mapping. This string effectively deletes a
@@ -83,33 +84,27 @@ s:autodelim_eat({delchar})				*s:autodelim_eat()*
 		 delete their respective closing delimiters so long as no
 		 characters or only whitespace separate the closing
 		 delimiters. For example, if no new characters are entered and
-		 'backspace' is not empty, entering CTRL-U, where the cursor
-		 is denoted by @,
+		 'backspace' contains "start", entering CTRL-U, where the
+		 cursor is denoted by @,
 			(((@)))
 		 results in
 			@
-		 that is, matching pairs are deleted. Curiously, this behavior
-		 works even when delimiters are matched out of order: entering
-		 CTRL-U here
-			(([(@])))
-		 produces
-			@
 
-s:autodelim_brace()				*s:autodelim_brace()*
+s:autodeli_brace()				*s:autodeli_brace()*
 	Expects: none
 	Ensures: returns a string comprising characters to be interpreted by
 		 the {rhs} of a mapping. This string executes the behavior of
-		 entering an opening brace |autodelim-func-details|. This
+		 entering an opening brace |autodeli-func-details|. This
 		 function only works in Insert mode.
 
-s:autodelim_enter()				*s:autodelim_enter()*
+s:autodeli_enter()				*s:autodeli_enter()*
 	Expects: none
 	Ensures: returns a string comprising characters to be interpreted by
 		 the {rhs} of a mapping. This string fulfills the second
-		 outcome of auto-completing braces |autodelim-func-details|.
+		 outcome of auto-completing braces |autodeli-func-details|.
 		 This function only works in Insert mode.
 
-s:autodelim_tab()				*s:autodelim_tab()*
+s:autodeli_tab()				*s:autodeli_tab()*
 	Expects: none
 	Ensures: returns a string comprising characters to be interpreted by
 		 the {rhs} of a mapping. This string effectively moves the
@@ -140,11 +135,11 @@ s:skip_closing({closing})			*s:skip_closing()*
 	Ensures: returns a string comprising characters to be interpreted by
 		 the {rhs} of a mapping. This string executes the behavior of
 		 entering {closing} when the cursor is between the delimiters
-		 that include {closing} |autodelim-closing-delim|. This
+		 that include {closing} |autodeli-closing-delim|. This
 		 function only works in Insert mode.
 
 ==============================================================================
-3.	Technical details			*autodelim-verbose*
+3.	Technical details			*autodeli-verbose*
 
 INSERTING DELIMITERS
 
@@ -167,11 +162,11 @@ Quotes ~
 In most cases, quotation marks are completed automatically. However, if a
 quote is entered within a string or immediately after a word character, it is
 not completed (assuming that the string is delimited by different quotes
-|autodelim-closing-delim|): typing a ' or " inserts the respective character
+|autodeli-closing-delim|): typing a ' or " inserts the respective character
 as normal.
 
 Strings ~
-						*autodelim-string*
+						*autodeli-string*
 In this plugin's context, a string is defined to be a sequence of characters
 delimited by either single quotes or double quotes, where the opening quote
 succeeds the start of line or a non-word character. Strings cannot be nested,
@@ -220,7 +215,7 @@ yields
 	}
 
 Entering isolated opening delimiters ~
-						*autodelim-no-complete*
+						*autodeli-no-complete*
 Under this plugin, an auto-completing opening delimiter can be entered by
 itself by pressing its corresponding key as normal, moving the cursor after
 the automatically inserted closing delimiter, and deleting the closing
@@ -228,7 +223,7 @@ delimiter. Alternatively, after the delimiter pair is inserted automatically,
 type "<C-O>x".
 
 Entering a closing delimiter or <Tab> ~
-						*autodelim-closing-delim*
+						*autodeli-closing-delim*
 When the closing delimiter of the set of delimiters surrounding the cursor is
 entered, the existing closing delimiter moves to the cursor and the cursor
 advances past this delimiter. This behavior occurs so long as no characters or
@@ -255,14 +250,14 @@ delimiters are on the same line, but they need not different notations.
 
 
 3.1 Functions ~
-						*autodelim-func-details*
+						*autodeli-func-details*
 This section contains further descriptions of some of the functions listed in
-|autodelim-function-list|. These functions with their accompanying
+|autodeli-function-list|. These functions with their accompanying
 descriptions are lexically ordered. For an overview of them, see
-|autodelim-functions|.
+|autodeli-functions|.
 
 
-s:autodelim_eat()
+s:autodeli_eat()
 
 This function provides quick deletion of a matching pair. If the first
 non-whitespace character following the cursor is a matched closing delimiter
@@ -280,7 +275,7 @@ This function works across multiple lines. Delimiters that have the same
 notation for their opening and closing versions are supported, but the
 matching delimiters must be on the same line; such an intricacy is similar to
 that of the behavior produced by entering a closing delimiter
-|autodelim-closing-delim|.
+|autodeli-closing-delim|.
 
 Examples, where @ indicates the cursor position:
 
@@ -312,7 +307,7 @@ produces
 	struct @
 
 
-s:autodelim_brace()
+s:autodeli_brace()
 
 Out of all the auto-completing delimiters, braces are the most special:
 entering an '{' can result in one of three outcomes, listed from highest to

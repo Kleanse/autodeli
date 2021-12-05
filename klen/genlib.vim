@@ -3,6 +3,9 @@
 "
 " 2021 Oct 25 - Written by Kenny Lam.
 
+let s:save_cpo = &cpoptions
+set cpoptions&vim
+
 function klen#genlib#peek(stack)
 	" klen#genlib#peek() implementation {{{
 	return a:stack[len(a:stack) - 1]
@@ -71,3 +74,5 @@ function klen#genlib#cursor_char_byte(prev = v:false, pat = '')
 	return byteidx(l:csr_line, l:c_bidx)
 endfunction
 "}}}
+
+let &cpoptions = s:save_cpo

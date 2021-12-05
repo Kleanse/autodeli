@@ -3,6 +3,9 @@
 "
 " 2021 Oct 25 - Written by Kenny Lam.
 
+let s:save_cpo = &cpoptions
+set cpoptions&vim
+
 function klen#str#byteidx_quote_positions(string, index)
 	" klen#str#byteidx_quote_positions() implementation {{{
 	" Strings delimited by single quotes and strings delimited by double
@@ -266,3 +269,5 @@ function s:str_match_chars(string, pat, start, end)
 	return l:n_chars
 endfunction
 "}}}
+
+let &cpoptions = s:save_cpo
