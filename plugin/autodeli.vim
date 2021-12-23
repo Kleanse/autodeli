@@ -9,6 +9,19 @@ let g:loaded_autodeli = 1
 let s:save_cpo = &cpoptions
 set cpoptions&vim
 
+" Dirty hack (why is the variable not used as a Boolean?) used for the
+" multi-line outcomes of brace autocompletion. The value 1 indicates the
+" current Insert mode experienced a multi-line brace autocompletion; leaving
+" Insert mode in this case will delete the cursor line if it is blank.
+let s:autocompleted_multiline_brace = 2
+
+" Autocommands {{{
+augroup autodeli
+	autocmd!
+	autocmd InsertLeave * call s:brace_delete_line()
+augroup END
+" }}}
+
 " Dictionary that contains the delimiters to consider for autocompletion and
 " facilitates identification of a delimiter's corresponding delimiter, e.g.,
 " the key '{' yields '}' and vice versa.
@@ -25,8 +38,8 @@ let s:closing_delims = values(s:pairs)
 " DRY: create the key-value pairs in the other direction.
 call map(copy(s:pairs), 'extend(s:pairs, {v:val: v:key}, "keep")')
 
-" Dictionary associating characters to plugin mapping names, of which follow
-" the format
+" Dictionary associating characters to plugin mapping names, which follow the
+" format
 "	<Plug>autodeli_<name>;
 let s:plug_names = {
 	\ '<BS>' : '<Plug>autodeli_backspace;',
@@ -91,6 +104,7 @@ function s:autodeli_brace()
 					     \ strlen(l:csr_line))
 		let l:string = repeat("\<Del>", l:n) .. l:string
 						   \ .. "\<CR>}\<BS>\<C-O>O"
+		let s:autocompleted_multiline_brace = 0
 	elseif l:csr_line =~ '\v^\s*%(struct|class|enum)%(\s+|$)'
 		let l:string ..= s:right .. ";" .. repeat(s:left, 2)
 	endif
@@ -193,6 +207,7 @@ function s:autodeli_enter()
 		let l:n = klen#str#match_chars(getline('.'), '\s', l:bidx + 1,
 					     \ col('.') - 1)
 		let l:string = repeat("\<BS>", l:n) .. "\<CR>}\<BS>\<C-O>O"
+		let s:autocompleted_multiline_brace = 0
 	endif
 	return l:string
 endfunction
@@ -278,6 +293,15 @@ endfunction
 "}}}
 
 " Helper functions
+function s:brace_delete_line()
+	" s:brace_delete_line() implementation {{{
+	if s:autocompleted_multiline_brace == 1 && getline('.') =~ '\v^\s*$'
+		delete _
+	endif
+	let s:autocompleted_multiline_brace += 1
+endfunction
+" }}}
+
 function s:delete_closing(indices)
 	" For each byte index in indices, deletes up to and including the first
 	" non-whitespace character after the cursor (crossing multiple lines if
