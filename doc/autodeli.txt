@@ -1,4 +1,6 @@
-*autodeli.txt*	For Vim version 8.2	Last change: 2021 Nov 30
+*autodeli.txt*	For Vim version 8.2	Last change: 2022 Jan 11
+
+		    AUTODELI DOCUMENTATION - by Kenny Lam
 
 	      Automatically insert and delete matching delimiters
 
@@ -8,12 +10,14 @@ matching delimiters are completed and deleted automatically.
 1.  Function list		    |autodeli-function-list|
 2.  Function documentation	    |autodeli-functions|
 3.  Technical details		    |autodeli-verbose|
-    3.1 Functions			|autodeli-func-details|
+    3.1 Definitions and Notations	|autodeli-definitions|
+    3.2 Behavior			|autodeli-behavior|
+    3.3 Functions			|autodeli-function-details|
 
 ==============================================================================
 1.	Function list				*autodeli-function-list*
 
-Auto-completion:				*autodeli-auto-functions*
+Auto-completion:
 	s:autocomplete_delimiters()	insert a pair of delimiters at once
 	s:autocomplete_quotes()		insert a pair of quotes at once if the
 					given quote is entered outside a
@@ -22,11 +26,11 @@ Auto-completion:				*autodeli-auto-functions*
 					characters or only whitespace separate
 					it and the cursor
 
-Buffers:				*autodeli-buffer-functions*
+Buffers:
 	s:matched()			gets the matching delimiter of the
 					delimiter at the given byte index
 
-Overload:					*autodeli-overload-functions*
+Overload:
 	s:autodeli_eat()		overload a backspace character for
 					Insert mode
 	s:autodeli_brace()		overload { for Insert mode
@@ -38,7 +42,7 @@ Overload:					*autodeli-overload-functions*
 
 See |autodeli-function-list| for a lexically ordered list of categories, each
 of which contains functions sorted in the same fashion. Also see
-|autodeli-func-details| for more comprehensive descriptions of certain
+|autodeli-function-details| for more comprehensive descriptions of certain
 functions.
 
 s:autocomplete_delimiters({opening}, {closing})	*s:autocomplete_delimiters()*
@@ -86,23 +90,24 @@ s:autodeli_eat({delchar})				*s:autodeli_eat()*
 		 delimiters. For example, if no new characters are entered and
 		 'backspace' contains "start", entering CTRL-U, where the
 		 cursor is denoted by @,
-			(((@)))
+			(((@))) ~
 		 results in
-			@
+			@ ~
 
 s:autodeli_brace()				*s:autodeli_brace()*
 	Expects: none
 	Ensures: returns a string comprising characters to be interpreted by
 		 the {rhs} of a mapping. This string executes the behavior of
-		 entering an opening brace |autodeli-func-details|. This
+		 entering an opening brace |autodeli-function-details|. This
 		 function only works in Insert mode.
 
 s:autodeli_enter()				*s:autodeli_enter()*
 	Expects: none
 	Ensures: returns a string comprising characters to be interpreted by
 		 the {rhs} of a mapping. This string fulfills the second
-		 outcome of auto-completing braces |autodeli-func-details|.
-		 This function only works in Insert mode.
+		 outcome of auto-completing braces
+		 |autodeli-function-details|. This function only works in
+		 Insert mode.
 
 s:autodeli_tab()				*s:autodeli_tab()*
 	Expects: none
@@ -125,7 +130,7 @@ s:matched({index} [, {lnum}])				*s:matched()*
 		 indicated by {lnum}. By default, {lnum} is the cursor's line
 		 number. If the delimiter to consider is not a valid delimiter
 		 or no matching delimiter is found, returns [0, 0].
-			Index	Meaning
+			Index	Meaning ~
 			0	line number
 			1	column number
 
@@ -141,17 +146,59 @@ s:skip_closing({closing})			*s:skip_closing()*
 ==============================================================================
 3.	Technical details			*autodeli-verbose*
 
+This section details and describes the concepts behind this plugin's
+implementations for completing delimiters automatically.
+
+3.1 Definitions and Notations ~
+				*autodeli-definitions* *autodeli-notations*
+This plugin assumes the following definitions and notations.
+
+CURSOR
+
+Unless stated otherwise, this document denotes the cursor as '@', i.e., the at
+sign.
+
+STRINGS
+						*autodeli-string*
+A string is defined to be a sequence of characters delimited by either single
+quotes or double quotes, where the opening quote succeeds the start of line or
+a non-word character. Strings cannot be nested, and they cannot span across
+multiple lines. Instances of the quote delimiting a string can be used within
+the same string so long as they are escaped with backslashes. Quotes within a
+string delimited by the alternative quotes have no special meaning, regardless
+of whether they are escaped.
+
+Unlike quotes, all other valid delimiters retain their special meanings in a
+string with a couple of caveats: an opening non-quote delimiter can match its
+closing delimiter so long as both delimiters reside in the same string and are
+unescaped.
+
+Examples:
+	( "" ) ~
+	Delimiters match
+	'('  ) ~
+	No match: delimiters are not in the same string
+	"[foo]" ~
+	Delimiters match
+	"\{}" ~
+	No match: opening delimiter is escaped
+
+
+3.2 Behavior ~
+						*autodeli-behavior*
 INSERTING DELIMITERS
 
 A pair of matching delimiters eligible for autocompletion is inserted when the
-opening delimiter is entered.
+opening delimiter of the pair is entered.
 
 UNDO COMPLETION
 
 An automatically completed pair of delimiters is not considered a separate
 change; it is part of the current Insert command. Thus, undoing an
-auto-completed pair undoes the entire Insert command, which is the default Vim
-behavior.
+auto-completed pair undoes the entire Insert command, which is the default
+behavior of Vim.
+
+DELIMITERS IN DETAIL
 
 Parentheses and Brackets ~
 
@@ -162,27 +209,8 @@ Quotes ~
 In most cases, quotation marks are completed automatically. However, if a
 quote is entered within a string or immediately after a word character, it is
 not completed (assuming that the string is delimited by different quotes
-|autodeli-closing-delim|): typing a ' or " inserts the respective character
-as normal.
-
-Strings ~
-						*autodeli-string*
-In this plugin's context, a string is defined to be a sequence of characters
-delimited by either single quotes or double quotes, where the opening quote
-succeeds the start of line or a non-word character. Strings cannot be nested,
-and they cannot span across multiple lines. Instances of the quote delimiting
-a string can be used within the same string so long as they are escaped with
-backslashes. Quotes within a string delimited by the alternative quotes have
-no special meaning, regardless of whether they are escaped.
-
-Unlike quotes, all other valid delimiters retain their special meanings in a
-string with a couple of caveats: an opening non-quote delimiter can match its
-closing delimiter so long as both delimiters reside in the same string and are
-unescaped.
-Examples:
-	( "" )	Parentheses match
-	'('  )	No match; thus, closing parenthesis cannot be skipped.
-	"(foo)"	Parentheses match
+|autodeli-string|): typing a ' or " inserts the respective character as
+normal.
 
 Braces ~
 
@@ -195,35 +223,39 @@ one additional indent level on the new line, and the closing brace moves to
 another line, indented at the same level as the line of the opening brace.
 That is, entering a <CR>, where the cursor is indicated as an @
 
-	if (condition) {@}
+	if (condition) {@} ~
 
 produces
 
-	if (condition) {
-		@
-	}
+	if (condition) { ~
+		@ ~
+	} ~
 
 If a '{' is entered on an empty line, the above behavior occurs immediately.
 So, entering '{'
 
-	@
+	@ ~
 
 yields
 
-	{
-		@
-	}
+	{ ~
+		@ ~
+	} ~
 
 Entering isolated opening delimiters ~
 						*autodeli-no-complete*
 Under this plugin, an auto-completing opening delimiter can be entered by
-itself by pressing its corresponding key as normal, moving the cursor after
-the automatically inserted closing delimiter, and deleting the closing
-delimiter. Alternatively, after the delimiter pair is inserted automatically,
-type "<C-O>x".
+itself by pressing its corresponding key as normal, exiting Insert mode,
+moving the cursor right, and hitting "x". That is, to enter a '(' only in
+Insert mode, use the keystroke >
+
+	(<Esc>lx
+
+Alternatively, after the delimiter pair is inserted automatically, type
+"<C-O>x".
 
 Entering a closing delimiter or <Tab> ~
-						*autodeli-closing-delim*
+						*autodeli-closing-delimiter*
 When the closing delimiter of the set of delimiters surrounding the cursor is
 entered, the existing closing delimiter moves to the cursor and the cursor
 advances past this delimiter. This behavior occurs so long as no characters or
@@ -231,14 +263,14 @@ only whitespace lie between the cursor and the closing delimiter. For
 delimiters with different opening and closing notations, it works across
 lines, e.g., entering '}' where @ indicates the cursor
 
-	{
-		@
-	}
+	{ ~
+		@ ~
+	} ~
 
 yields
 
-	{
-		}@
+	{ ~
+		}@ ~
 
 Entering a <Tab> in the same context as detailed above results in a similar
 behavior, i.e., the cursor advances past the closing delimiter, but the
@@ -249,27 +281,21 @@ latter one deletes it. Additionally, this behavior only works if the matching
 delimiters are on the same line, but they need not different notations.
 
 
-3.1 Functions ~
-						*autodeli-func-details*
+3.3 Functions ~
+						*autodeli-function-details*
 This section contains further descriptions of some of the functions listed in
-|autodeli-function-list|. These functions with their accompanying
-descriptions are lexically ordered. For an overview of them, see
-|autodeli-functions|.
+|autodeli-function-list|. These functions with their accompanying descriptions
+are lexically ordered. For an overview of them, see |autodeli-functions|.
 
 
-s:autodeli_eat()
+s:autodeli_eat() ~
 
 This function provides quick deletion of a matching pair. If the first
 non-whitespace character following the cursor is a matched closing delimiter
 and the corresponding opening delimiter would normally be deleted by the given
 backspacing character, the closing delimiter and whitespace between it and the
-cursor are deleted as well. This function overloads <BS>, CTRL-U, and CTRL-W
-in Insert mode.
-
-The <BS> character behaves as normal in all modes except for Insert mode. In
-Insert mode, deleting a valid opening delimiter also deletes its matching
-closing delimiter if the delimiters are immediately adjacent to one another or
-separated by only whitespace. Otherwise, <BS> is interpreted as normal.
+cursor are deleted as well. This function overloads <BS>, CTRL-H, CTRL-U, and
+CTRL-W in Insert mode.
 
 This function works across multiple lines. Delimiters that have the same
 notation for their opening and closing versions are supported, but the
@@ -279,35 +305,36 @@ that of the behavior produced by entering a closing delimiter
 
 Examples, where @ indicates the cursor position:
 
-	start {@
+	start {@ ~
 
-	} trailing text
+	} trailing text ~
 
-Entering a backslash here yields
+Entering a <BS> here yields
 
-	start @ trailing text
+	start @ trailing text ~
 
 With quotes, the following text
 
-	print "@   "
+	print "@   " ~
 
 becomes
 
-	print @
+	print @ ~
 
-The overloaded <BS> has one more intricacy: when deleting a brace pair, if the
+after hitting <BS>.
+
+This function has one more intricacy: when deleting a brace pair, if the
 closing brace is immediately followed by a semicolon, the semicolon is deleted
-as well: entering a <BS>
+as well. For example, entering a <BS> in the following text
 
-	struct {@
-	};
+	struct {@}; ~
 
 produces
 
-	struct @
+	struct @ ~
 
 
-s:autodeli_brace()
+s:autodeli_brace() ~
 
 Out of all the auto-completing delimiters, braces are the most special:
 entering an '{' can result in one of three outcomes, listed from highest to
@@ -325,19 +352,14 @@ lowest priority:
 The first and last outcomes occur as soon as '{' is entered; the second
 outcome occurs when <CR> is entered and the cursor is surrounded by braces. Of
 course, if the first outcome always triggered when '{' is entered, this second
-outcome would be permanently hidden. Therefore, the first outcome has one
-further stipulation: the line must be empty or comprise only whitespace when
-'{' is entered; if the line has whitespace, any whitespace after '{' is
-deleted, and whitespace before '{' is preserved.
+outcome would never transpire. Therefore, the first outcome has one further
+stipulation: the line must be empty or comprise only whitespace when '{' is
+entered; if the line has whitespace, any whitespace after '{' is deleted, and
+whitespace before '{' is preserved.
 
 The indentation levels of the subsequent two lines in the first outcome is
-governed by the options 'autoindent', 'smartindent', 'cindent', and
-'indentexpr'. If only 'autoindent' is set, both the second and third lines'
-indents match that of the first line. If any of the other three options is set
-or nonempty, the principal option dictates the indent style of the second and
-third lines (see |C-indenting| for the option ranking). If none of these four
-options are set or nonempty, no indent is provided for the second and third
-lines: they are flush left.
+governed by presiding indent option (see |C-indenting| for the option
+ranking).
 
 The second outcome typically occurs when typing <CR> after entering a '{'.
 However, it actually can occur anytime a <CR> is entered between a '{' and a
@@ -348,31 +370,38 @@ is when neither 'autoindent', 'smartindent', 'cindent', nor 'indentexpr' is
 set or nonempty. For example, with 'autoindent' set, entering a <CR>, where
 the cursor is indicated as an @
 
-		       whitespace
-			vv vvv v
-	if (condition) {  @   } trailing
+		      whitespace
+			vv vvv
+	if (condition) {  @   } trailing ~
 
 yields
 
-	if (condition) {
-	@
-	} trailing
+	if (condition) { ~
+	@ ~
+	} trailing ~
 
 Without 'autoindent', the result is
 
-	if (condition) {
-	@
-	   } trailing
+	if (condition) { ~
+	@ ~
+	   } trailing ~
+	^^^
+	whitespace
 
 Besides the three outcomes, braces have one more automated aspect: entering an
 '{' on a line that begins with the word "struct", "class", or "enum"
 automatically inserts a semicolon after the brace pair.
 
+						*autodeli-delete-empty*
+For convenience, if no text is entered after the first or second outcome is
+triggered, the cursor line is deleted. This behavior makes copying-pasting
+text into the braces quicker.
 
-s:matched()
+
+s:matched() ~
 
 s:matched() does the heavy lifting in this plugin: it checks whether the given
-delimiter is matched according to the rules described in this document. The
+delimiter is matched according to the rules described in this document. Its
 return value is a position, which comprises a line number and column number.
 
 If the delimiter to consider is a quote or in a string, this function returns
@@ -384,5 +413,6 @@ To limit search time, only the lines within the current window's view are
 considered. Thus, if the given delimiter actually has a matching delimiter but
 it is not in view, this function misleadingly reports the delimiter as
 unmatched.
+
 
  vim:tw=78:isk=!-~,^*,^\|,^\":ts=8:noet:ft=help:norl:
