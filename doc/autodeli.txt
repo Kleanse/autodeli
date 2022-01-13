@@ -1,4 +1,4 @@
-*autodeli.txt*	For Vim version 8.2	Last change: 2022 Jan 11
+*autodeli.txt*	For Vim version 8.2	Last change: 2022 Jan 13
 
 		    AUTODELI DOCUMENTATION - by Kenny Lam
 
@@ -140,7 +140,7 @@ s:skip_closing({closing})			*s:skip_closing()*
 	Ensures: returns a string comprising characters to be interpreted by
 		 the {rhs} of a mapping. This string executes the behavior of
 		 entering {closing} when the cursor is between the delimiters
-		 that include {closing} |autodeli-closing-delim|. This
+		 that include {closing} |autodeli-closing-delimiter|. This
 		 function only works in Insert mode.
 
 ==============================================================================
@@ -169,8 +169,8 @@ string delimited by the alternative quotes have no special meaning, regardless
 of whether they are escaped.
 
 Unlike quotes, all other valid delimiters retain their special meanings in a
-string with a couple of caveats: an opening non-quote delimiter can match its
-closing delimiter so long as both delimiters reside in the same string and are
+string with one caveat: an opening non-quote delimiter can match its closing
+delimiter so long as both delimiters reside in the same string and are
 unescaped.
 
 Examples:
@@ -246,7 +246,7 @@ Entering isolated opening delimiters ~
 						*autodeli-no-complete*
 Under this plugin, an auto-completing opening delimiter can be entered by
 itself by pressing its corresponding key as normal, exiting Insert mode,
-moving the cursor right, and hitting "x". That is, to enter a '(' only in
+moving the cursor right, and hitting "x". That is, to enter only a '(' in
 Insert mode, use the keystroke >
 
 	(<Esc>lx
@@ -261,7 +261,7 @@ entered, the existing closing delimiter moves to the cursor and the cursor
 advances past this delimiter. This behavior occurs so long as no characters or
 only whitespace lie between the cursor and the closing delimiter. For
 delimiters with different opening and closing notations, it works across
-lines, e.g., entering '}' where @ indicates the cursor
+lines, e.g., entering '}'
 
 	{ ~
 		@ ~
@@ -301,15 +301,15 @@ This function works across multiple lines. Delimiters that have the same
 notation for their opening and closing versions are supported, but the
 matching delimiters must be on the same line; such an intricacy is similar to
 that of the behavior produced by entering a closing delimiter
-|autodeli-closing-delim|.
+|autodeli-closing-delimiter|.
 
-Examples, where @ indicates the cursor position:
+Examples:
 
 	start {@ ~
 
 	} trailing text ~
 
-Entering a <BS> here yields
+Entering a <BS> yields
 
 	start @ trailing text ~
 
@@ -367,8 +367,7 @@ However, it actually can occur anytime a <CR> is entered between a '{' and a
 whitespace precedes '}', whitespace between the '{' and the cursor is deleted.
 Whitespace between the cursor and '}' is also usually deleted; the exception
 is when neither 'autoindent', 'smartindent', 'cindent', nor 'indentexpr' is
-set or nonempty. For example, with 'autoindent' set, entering a <CR>, where
-the cursor is indicated as an @
+set or nonempty. For example, with 'autoindent' set, entering a <CR>
 
 		      whitespace
 			vv vvv
