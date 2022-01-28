@@ -1,450 +1,454 @@
-" Vim global plugin for automatically completing bracket delimiters.
-" 2021 Oct 21 - Written by Kenny Lam.
+vim9script noclear
+import autoload 'klen/genlib.vim'
+import autoload 'klen/str.vim'
+
+const Peek = genlib.Peek
+const Pop = genlib.Pop
+const Push = genlib.Push
+
+# Vim global plugin for automatically completing bracket delimiters.
+# 2021 Oct 21 - Written by Kenny Lam.
 
 if exists("g:loaded_autodeli")
-	finish
+      finish
 endif
-let g:loaded_autodeli = 1
+g:loaded_autodeli = 1
 
-let s:save_cpo = &cpoptions
-set cpoptions&vim
+# Dirty hack (why is this variable not a Boolean?) used for the multi-line
+# outcomes of brace autocompletion. The value 1 indicates the current Insert
+# mode experienced a multi-line brace autocompletion; leaving Insert mode in
+# this case will delete the cursor line if it is blank.
+var autocompleted_multiline_brace = 2
 
-" Dirty hack (why is the variable not used as a Boolean?) used for the
-" multi-line outcomes of brace autocompletion. The value 1 indicates the
-" current Insert mode experienced a multi-line brace autocompletion; leaving
-" Insert mode in this case will delete the cursor line if it is blank.
-let s:autocompleted_multiline_brace = 2
-
-" Autocommands {{{
+# Autocommands {{{
 augroup autodeli
 	autocmd!
-	autocmd InsertLeave * call s:brace_delete_line()
+	autocmd InsertLeave * Brace_delete_line()
 augroup END
-" }}}
+# }}}
 
-" Dictionary that contains the delimiters to consider for autocompletion and
-" facilitates identification of a delimiter's corresponding delimiter, e.g.,
-" the key '{' yields '}' and vice versa.
-let s:pairs = {
-	\ "'": "'",
-	\ '"': '"',
-	\ '(': ')',
-	\ '[': ']',
-	\ '{': '}',
-\ }
-let s:opening_delims = keys(s:pairs)
-let s:closing_delims = values(s:pairs)
+# Dictionary that contains the delimiters to consider for autocompletion and
+# facilitates identification of a delimiter's corresponding delimiter, e.g.,
+# the key '{' yields '}' and vice versa.
+final PAIRS = {
+	"'": "'",
+	'"': '"',
+	'(': ')',
+	'[': ']',
+	'{': '}',
+}
+const CLOSING_DELIMS = PAIRS->values()
 
-" DRY: create the key-value pairs in the other direction.
-call map(copy(s:pairs), 'extend(s:pairs, {v:val: v:key}, "keep")')
-
-" Dictionary associating characters to plugin mapping names, which follow the
-" format
-"	<Plug>autodeli_<name>;
-let s:plug_names = {
-	\ '<BS>' : '<Plug>autodeli_backspace;',
-	\ '<C-H>': '<Plug>autodeli_ctrl-h;',
-	\ '<C-U>': '<Plug>autodeli_ctrl-u;',
-	\ '<C-W>': '<Plug>autodeli_ctrl-w;',
-	\ '<CR>' : '<Plug>autodeli_enter;',
-	\ '<Tab>': '<Plug>autodeli_tab;',
-\ }
-
-for s:delim in keys(s:pairs)
-	let s:plug_names[s:delim] = '<Plug>autodeli_' .. s:delim .. ';'
+# Create the key-value pairs in the other direction.
+for [key, val] in copy(PAIRS)->items()
+	PAIRS->extend({[val]: key}, 'keep')
 endfor
-unlet s:delim
 
-let s:left  = "\<C-G>U\<Left>"
-let s:right = "\<C-G>U\<Right>"
+# Dictionary associating characters to plugin mapping names, which follow the
+# format
+#	<Plug>autodeli_<name>;
+final PLUG_NAMES = {
+	'<BS>': '<Plug>autodeli_backspace;',
+	'<C-H>': '<Plug>autodeli_ctrl-h;',
+	'<C-U>': '<Plug>autodeli_ctrl-u;',
+	'<C-W>': '<Plug>autodeli_ctrl-w;',
+	'<CR>': '<Plug>autodeli_enter;',
+	'<Tab>': '<Plug>autodeli_tab;',
+}
 
-function s:autocomplete_delimiters(opening, closing)
-	" s:autocomplete_delimiters() implementation {{{
-	if mode() !=# 'i'
-		return a:opening
-	endif
-	return a:opening .. a:closing .. s:left
-endfunction
-"}}}
+for delim in keys(PAIRS)
+	PLUG_NAMES[delim] = '<Plug>autodeli_' .. delim .. ';'
+endfor
 
-function s:autocomplete_quotes(quote)
-	" s:autocomplete_quotes() implementation {{{
-	let l:string = a:quote
-	if mode() !=# 'i'
-		return l:string
-	endif
-	let l:csr_line = getline('.')
-	let l:csr_idx = col('.') - 1
-	let l:c_bidx = klen#genlib#cursor_char_byte(v:false, '\S')
-	let l:char = l:csr_line[l:c_bidx]    " char can be empty.
-	let l:csr_quotes = klen#str#byteidx_quote_positions(
-				\ l:csr_line[:l:c_bidx], l:csr_idx)
-	if l:char ==# a:quote
-	 \ && l:c_bidx == l:csr_quotes[1]
-		let l:string = repeat("\<Del>", l:c_bidx - l:csr_idx)
-			     \ .. s:right
-	elseif (l:c_bidx == l:csr_quotes[0] || l:csr_quotes == [-1, -1])
-	     \ && klen#genlib#cursor_char(v:true) =~ '\W\|^$'
-		let l:string = s:autocomplete_delimiters(a:quote, a:quote)
-	endif
-	return l:string
-endfunction
-"}}}
+# Like <Left> and <Right>, but do not break undo sequence.
+const LEFT  = "\<C-G>U\<Left>"
+const RIGHT = "\<C-G>U\<Right>"
 
-function s:autodeli_brace()
-	" s:autodeli_brace() implementation {{{
-	let l:string = "{"
-	if mode() !=# 'i'
-		return l:string
+def Autocomplete_delimiters(opening: string, closing: string): string
+	# Autocomplete_delimiters() implementation {{{
+	if mode() != 'i'
+		return opening
 	endif
-	let l:string = s:autocomplete_delimiters('{', '}')
-	let l:csr_line = getline('.')
-	if l:csr_line =~ '\v^\s*$'
-		let l:n = klen#str#match_chars(l:csr_line, '\s', col('.') - 1,
-					     \ strlen(l:csr_line))
-		let l:string = repeat("\<Del>", l:n) .. l:string
-						   \ .. "\<CR>}\<BS>\<C-O>O"
-		let s:autocompleted_multiline_brace = 0
-	elseif l:csr_line =~ '\v^\s*%(struct|class|enum)%(\s+|$)'
-		let l:string ..= s:right .. ";" .. repeat(s:left, 2)
-	endif
-	return l:string
-endfunction
-"}}}
+	return opening .. closing .. LEFT
+enddef
+# }}}
 
-function s:autodeli_eat(delchar)
-	" s:autodeli_eat() implementation {{{
-	let l:string = a:delchar
-	if mode() !=# 'i'
-		return l:string
+def Autocomplete_quotes(quote: string): string
+	# Autocomplete_quotes() implementation {{{
+	var rhs = quote
+	if mode() != 'i'
+		return rhs
 	endif
-	let l:opening_indices = [] " Byte indices of open delims before cursor.
-	let l:csr_pos = getcurpos()
-	let l:c_pos = searchpos('\S', 'cW') " First char might be at cursor.
-	call setpos('.', l:csr_pos)
-	let l:char = getline(l:c_pos[0])[l:c_pos[1] - 1]
-	let l:executed = v:false   " Checks if main loop iterated once.
-	" Last cursor position when searching for an open delimiter.
-	let l:last_open_pos = l:csr_pos[1:2]
 
-	" Loop invariants:
-	"  o  Cursor is at csr_pos.
-	"  o  opening_indices includes indices of all valid opening delimiters
-	"     within [last_open_pos[1] - 1, csr_pos[2] - 1).
-	while index(s:closing_delims, l:char) >= 0
-	    \ && (a:delchar != "\<BS>" || !l:executed)
-		let l:quote_indices = klen#str#byteidx_quote_positions(
-					\ getline('.'), l:c_pos[1] - 1)
-		if l:char ==# "'" || l:char ==# '"'
-			if l:c_pos[0] == line('.')
-			 \ && l:c_pos[1] - 1 == l:quote_indices[1]
-				call klen#genlib#push(l:opening_indices,
-						    \ l:quote_indices[0])
-				let l:last_open_pos[1] = l:quote_indices[0] + 1
+	const csrline = getline('.')
+	const csridx = col('.') - 1
+	const cbidx = genlib.Cursor_char_byte(false, '\S')
+	const c = csrline[cbidx]	# character can be empty.
+	const csr_quotes = str.Byteidx_quote_positions(csrline[: cbidx],
+						       csridx)
+
+	if c == quote && cbidx == csr_quotes[1]
+		rhs = repeat("\<Del>", cbidx - csridx) .. RIGHT
+	elseif (cbidx == csr_quotes[0] || csr_quotes == [-1, -1])
+			&& genlib.Cursor_char(true) =~ '\W\|^$'
+		rhs = Autocomplete_delimiters(quote, quote)
+	endif
+	return rhs
+enddef
+# }}}
+
+def Autodeli_brace(): string
+	# Autodeli_brace() implementation {{{
+	var rhs = "{"
+	if mode() != 'i'
+		return rhs
+	endif
+
+	rhs = Autocomplete_delimiters('{', '}')
+	const csrline = getline('.')
+	if csrline =~ '\v^\s*$'
+		const n = str.Match_chars(csrline, '\s', col('.') - 1,
+					  csrline->len())
+		rhs = repeat("\<Del>", n) .. rhs .. "\<CR>}\<BS>\<C-O>O"
+		autocompleted_multiline_brace = 0
+	elseif csrline =~ '\v^\s*%(struct|class|enum)%(\s+|$)'
+		rhs ..= RIGHT .. ";" .. repeat(LEFT, 2)
+	endif
+	return rhs
+enddef
+# }}}
+
+def Autodeli_eat(delchar: string): string
+	# Autodeli_eat() implementation {{{
+	var rhs = delchar
+	if mode() != 'i'
+		return rhs
+	endif
+
+	final opening_indices = [] # Byte indices of open delims before cursor.
+	const csrpos = getcurpos()
+	var cpos = searchpos('\S', 'cW') # First char might be at cursor.
+	setpos('.', csrpos)
+	var char = getline(cpos[0])[cpos[1] - 1]
+	var executed = false	# Checks if main loop iterated once.
+	# Last cursor position when searching for an open delimiter.
+	final last_open_pos = csrpos[1 : 2]
+
+	# Loop invariants:
+	#  o  Cursor is at its original position.
+	#  o  opening_indices includes indices of all valid opening delimiters
+	#     within [last_open_pos[1] - 1, csrpos[2] - 1).
+	while CLOSING_DELIMS->index(char) >= 0
+	      && (delchar != "\<BS>" || !executed)
+		const quote_indices = str.Byteidx_quote_positions(getline('.'),
+								  cpos[1] - 1)
+		if char == "'" || char == '"'
+			if cpos[0] == line('.')
+			   && cpos[1] - 1 == quote_indices[1]
+				opening_indices->Push(quote_indices[0])
+				last_open_pos[1] = quote_indices[0] + 1
 			else
 				break
 			endif
 		else
-			call cursor(l:last_open_pos)
-			let l:opening_pos = searchpairpos('\V'
-					  \ .. s:pairs[l:char], '', '\V'
-					  \ .. l:char, 'bW', '', line('.'))
-			let l:opening_quotes
-				\ = klen#str#byteidx_quote_positions(
-				  \ getline('.'), l:opening_pos[1] - 1)
-			if l:quote_indices == [-1, -1]
-				while l:opening_pos != [0, 0]
-				    \ && l:opening_quotes != l:quote_indices
-					let l:opening_pos = searchpairpos('\V'
-					      \ .. s:pairs[l:char], '', '\V'
-					      \ .. l:char, 'bW', '', line('.'))
-					let l:opening_quotes
-					  \ = klen#str#byteidx_quote_positions(
-					  \ getline('.'), l:opening_pos[1] - 1)
+			cursor(last_open_pos)
+			var opening_pos = searchpairpos('\V' .. PAIRS[char],
+					'', '\V' .. char, 'bW', '', line('.'))
+			var opening_quotes = str.Byteidx_quote_positions(
+					     getline('.'), opening_pos[1] - 1)
+			if quote_indices == [-1, -1]
+				while opening_pos != [0, 0]
+				      && opening_quotes != quote_indices
+					opening_pos = searchpairpos('\V'
+						.. PAIRS[char], '', '\V'
+						.. char, 'bW', '', line('.'))
+					opening_quotes =
+					      str.Byteidx_quote_positions(
+					      getline('.'), opening_pos[1] - 1)
 				endwhile
 			endif
-			if l:opening_pos[0] == line('.')
-			 \ && l:opening_quotes == l:quote_indices
-				call klen#genlib#push(l:opening_indices,
-						    \ l:opening_pos[1] - 1)
-				let l:last_open_pos[1] = l:opening_pos[1]
+			if opening_pos[0] == line('.')
+			   && opening_quotes == quote_indices
+				opening_indices->Push(opening_pos[1] - 1)
+				last_open_pos[1] = opening_pos[1]
 			else
 				break
 			endif
 		endif
-		call cursor(l:c_pos)
-		let l:c_pos = searchpos('\S', 'W')
-		let l:c_str = getline(l:c_pos[0])
-		if l:c_str[l:c_pos[1] - 1] ==# ';'
-		 \ && l:c_str[l:c_pos[1] - 2] ==# '}'
-			" Skip the semicolon following a closing brace.
-			let l:c_pos = searchpos('\S', 'W')
-			let l:c_str = getline(l:c_pos[0])
+
+		cursor(cpos)
+		cpos = searchpos('\S', 'W')
+		var cstr = getline(cpos[0])
+		if cstr[cpos[1] - 1] == ';' && cstr[cpos[1] - 2] == '}'
+			# Skip the semicolon following a closing brace.
+			cpos = searchpos('\S', 'W')
+			cstr = getline(cpos[0])
 		endif
-		call setpos('.', l:csr_pos)
-		let l:char = l:c_str[l:c_pos[1] - 1]
-		let l:executed = v:true
+		setpos('.', csrpos)
+		char = cstr[cpos[1] - 1]
+		executed = true
 	endwhile
-	if !empty(l:opening_indices) " opening_indices is in descending order.
-		let l:string ..= "\<Cmd>call " .. expand('<SID>')
-		       \ .. "delete_closing([" .. join(l:opening_indices, ", ")
-		       \ .. "])\<CR>"
-	endif
-	return l:string
-endfunction
-"}}}
 
-function s:autodeli_enter()
-	" s:autodeli_enter() implementation {{{
-	let l:string = "\<CR>"
-	if mode() !=# 'i'
-		return l:string
+	if !empty(opening_indices) # opening_indices is in descending order.
+		rhs ..= "\<ScriptCmd>Delete_closing(["
+			.. join(opening_indices, ", ") .. "])\<CR>"
 	endif
-	let l:next = klen#genlib#cursor_char(v:false, '\S')
-	let l:prev = klen#genlib#cursor_char(v:true, '\S')
-	if l:prev ==# '{' && l:next ==# '}'
-		let l:bidx = klen#genlib#cursor_char_byte(v:true, '\S')
-		let l:n = klen#str#match_chars(getline('.'), '\s', l:bidx + 1,
-					     \ col('.') - 1)
-		let l:string = repeat("\<BS>", l:n) .. "\<CR>}\<BS>\<C-O>O"
-		let s:autocompleted_multiline_brace = 0
-	endif
-	return l:string
-endfunction
-"}}}
+	return rhs
+enddef
+# }}}
 
-function s:autodeli_tab()
-	" s:autodeli_tab() implementation {{{
-	let l:string = "\<Tab>"
-	if mode() !=# 'i'
-		return l:string
+def Autodeli_enter(): string
+	# Autodeli_enter() implementation {{{
+	var rhs = "\<CR>"
+	if mode() != 'i'
+		return rhs
 	endif
-	let l:csr_line = getline('.')
-	let l:c_bidx = klen#genlib#cursor_char_byte(v:false, '\S')
-	if index(s:closing_delims, l:csr_line[l:c_bidx]) >= 0
-	 \ && s:matched(l:c_bidx)[0] == line('.')
-		let l:string = repeat(s:right,
-				    \ l:c_bidx - (col('.') - 1) + 1)
-	endif
-	return l:string
-endfunction
-"}}}
 
-function s:matched(index, lnum = line('.'))
-	" s:matched() implementation {{{
-	let l:pos = [0, 0]
-	let l:delim = getline(a:lnum)[a:index]
-	if index(keys(s:pairs), l:delim) == -1
-		return l:pos
+	const nextc = genlib.Cursor_char(false, '\S')
+	const prevc = genlib.Cursor_char(true, '\S')
+
+	if prevc == '{' && nextc == '}'
+		const prevc_bidx = genlib.Cursor_char_byte(true, '\S')
+		const n = str.Match_chars(getline('.'), '\s', prevc_bidx + 1,
+					  col('.') - 1)
+		rhs = repeat("\<BS>", n) .. "\<CR>}\<BS>\<C-O>O"
+		autocompleted_multiline_brace = 0
 	endif
-	let l:quote_indices = klen#str#byteidx_quote_positions(getline(a:lnum),
-							     \ a:index)
-	if l:quote_indices != [-1, -1]
-	 \ && klen#str#char_escaped(getline(a:lnum), a:index)
-		return l:pos
+	return rhs
+enddef
+# }}}
+
+def Autodeli_tab(): string
+	# Autodeli_tab() implementation {{{
+	var rhs = "\<Tab>"
+	if mode() != 'i'
+		return rhs
 	endif
-	let l:csr_pos = getcurpos()
-	if l:delim ==# "'" || l:delim ==# '"' || l:quote_indices != [-1, -1]
-		let l:bidx = s:str_matched(getline(a:lnum), a:index)
-		if l:bidx >= 0
-			let l:pos = [a:lnum, l:bidx + 1]
+
+	const csrline = getline('.')
+	const cbidx = genlib.Cursor_char_byte(false, '\S')
+
+	if CLOSING_DELIMS->index(csrline[cbidx]) >= 0
+	   && Matched(cbidx)[0] == line('.')
+		rhs = repeat(RIGHT, cbidx - (col('.') - 1) + 1)
+	endif
+	return rhs
+enddef
+# }}}
+
+def Matched(idx: number, lnum = line('.')): list<number>
+	# Matched() implementation {{{
+	var pos = [0, 0]
+	const delim = getline(lnum)[idx]
+	if PAIRS->keys()->index(delim) == -1
+		return pos
+	endif
+
+	const in_string = str.In_string(getline(lnum), idx)
+	if in_string && str.Char_escaped(getline(lnum), idx)
+		return pos
+	endif
+
+	const save_csrpos = getcurpos()
+	if delim == "'" || delim == '"' || in_string
+		const bidx = Str_matched(getline(lnum), idx)
+		if bidx >= 0
+			pos = [lnum, bidx + 1]
 		endif
 	else
-		if index(s:closing_delims, l:delim) >= 0
-			let l:dir = 'b'
-			let l:stop = line('w0') " Restrict search time.
-			let l:d = #{open: s:pairs[l:delim], close: l:delim}
-		else
-			let l:dir = ''
-			let l:stop = line('w$')
-			let l:d = #{open: l:delim, close: s:pairs[l:delim]}
+		var dir = ''		# Search direction
+		var stop = line('w$')	# Line at which to stop the search
+		var d = {open: delim, close: PAIRS[delim]} # Delimiter data
+		if CLOSING_DELIMS->index(delim) >= 0
+			dir = 'b'
+			stop = line('w0')
+			d = {open: PAIRS[delim], close: delim}
 		endif
-		call cursor(a:lnum, a:index + 1)
-		let l:pos = searchpairpos('\V' .. d.open, '', '\V' .. d.close,
-					\ dir .. 'W',
-			\ 'klen#str#byteidx_quote_positions(getline("."),'
-			\ .. 'col(".") - 1) != [-1, -1]', l:stop)
+		cursor(lnum, idx + 1)
+		pos = searchpairpos('\V' .. d.open, '', '\V' .. d.close,
+				    dir .. 'W',
+			'str.In_string(getline("."), col(".") - 1)', stop)
 	endif
-	call setpos('.', l:csr_pos)
-	return l:pos
-endfunction
-"}}}
+	setpos('.', save_csrpos)
+	return pos
+enddef
+# }}}
 
-function s:skip_closing(closing)
-	" s:skip_closing() implementation {{{
-	let l:string = a:closing
-	if mode() !=# 'i' || index(s:closing_delims, a:closing) == -1
-		return l:string
+def Skip_closing(closing: string): string
+	# Skip_closing() implementation {{{
+	var rhs = closing
+	if mode() != 'i' || CLOSING_DELIMS->index(closing) == -1
+		return rhs
 	endif
-	let l:csr_line = getline('.')
-	let l:closing_pos = searchpairpos('\V' .. s:pairs[a:closing],
-					\ '', '\V' .. a:closing, 'cnW')
-	if l:closing_pos == [0, 0]
-	 \ || s:matched(l:closing_pos[1] - 1, l:closing_pos[0]) == [0, 0]
-		return l:string
-	endif
-	let l:n_chars = klen#str#match_chars(getline('.', l:closing_pos[0]),
-				\ '\s', col('.') - 1, l:closing_pos[1] - 1)
-	if l:n_chars >= 0
-		let l:string = repeat("\<Del>", l:n_chars) .. s:right
-	endif
-	return l:string
-endfunction
-"}}}
 
-" Helper functions
-function s:brace_delete_line()
-	" s:brace_delete_line() implementation {{{
-	if s:autocompleted_multiline_brace == 1 && getline('.') =~ '\v^\s*$'
+	const closing_pos = searchpairpos('\V' .. PAIRS[closing], '',
+					  '\V' .. closing, 'cnW')
+	if closing_pos == [0, 0]
+	   || Matched(closing_pos[1] - 1, closing_pos[0]) == [0, 0]
+		return rhs
+	endif
+
+	const n_chars = str.Match_chars(getline('.', closing_pos[0]), '\s',
+					col('.') - 1, closing_pos[1] - 1)
+	if n_chars >= 0
+		rhs = repeat("\<Del>", n_chars) .. RIGHT
+	endif
+	return rhs
+enddef
+# }}}
+
+# Helper functions
+def Brace_delete_line()
+	# Brace_delete_line() implementation {{{
+	if autocompleted_multiline_brace == 1 && getline('.') =~ '\v^\s*$'
 		delete _
 	endif
-	let s:autocompleted_multiline_brace += 1
-endfunction
-" }}}
+	++autocompleted_multiline_brace
+enddef
+# }}}
 
-function s:delete_closing(indices)
-	" For each byte index in indices, deletes up to and including the first
-	" non-whitespace character after the cursor (crossing multiple lines if
-	" necessary) so long as the byte index is at or exceeds the cursor's
-	" byte index. For example, where @ indicates the cursor and indices
-	" is [2, 3], the following text
-	"			  1
-	" Byte index:	012345678901234
-	"		  @)          )
-	" becomes
-	" Byte index:	012
-	"		  @
-	" If such a non-whitespace character is a closing brace and a semicolon
-	" immediately succeeds it, deletes the semicolon as well: given indices
-	" [0, 1], the text
-	" Byte index:	0123
-	"		@};}
-	" becomes
-	" Byte index:	0
-	"		@
-	" s:delete_closing() implementation {{{
-	let l:csr_pos = getcurpos()
-	let l:pos = [0, 0]
-	for l:bidx in a:indices
-		if l:bidx < l:csr_pos[2] - 1
+def Delete_closing(indices: list<number>)
+	# For each byte index in indices, deletes up to and including the first
+	# non-whitespace character after the cursor (crossing multiple lines if
+	# necessary) so long as the byte index is at or exceeds the cursor's
+	# byte index. For example, where @ indicates the cursor and indices
+	# is [2, 3], the following text
+	#			  1
+	# Byte index:	012345678901234
+	#		  @)          )
+	# becomes
+	# Byte index:	012
+	#		  @
+	# If such a non-whitespace character is a closing brace and a semicolon
+	# immediately succeeds it, deletes the semicolon as well: given indices
+	# [0, 1], the text
+	# Byte index:	0123
+	#		@};}
+	# becomes
+	# Byte index:	0
+	#		@
+	# Delete_closing() implementation {{{
+	const csrpos = getcurpos()
+	var pos = [0, 0]
+	for bidx in indices
+		if bidx < csrpos[2] - 1
 			break
 		endif
-		let l:tmp = searchpos('\S', 'cW')
-		if l:tmp == [0, 0]
+		final tmp = searchpos('\S', 'cW')
+		if tmp == [0, 0]
 			break
 		else
-			let l:s = getline(l:tmp[0])
-			if l:s[l:tmp[1] - 1] ==# '}' && l:s[l:tmp[1]] ==# ';'
-				let l:tmp[1] += 1
+			const s = getline(tmp[0])
+			if s[tmp[1] - 1] == '}' && s[tmp[1]] == ';'
+				++tmp[1]
 			endif
 		endif
-		call cursor(l:tmp[0], l:tmp[1] + 1)
-		let l:pos = l:tmp
+		cursor(tmp[0], tmp[1] + 1)
+		pos = tmp
 	endfor
-	if l:pos != [0, 0]
-		call setpos('.', l:csr_pos)
-		let l:n = klen#str#match_chars(getline('.', l:pos[0]), '.',
-					     \ col('.') - 1, l:pos[1] - 1)
-		execute "normal! i" .. repeat("\<Del>", l:n + 1)
-		call setpos('.', l:csr_pos)
-	endif
-endfunction
-"}}}
 
-function s:define_default_mappings()
-	" s:define_default_mappings() implementation {{{
-	for [l:c, l:plug_name] in items(s:plug_names)
-		if !hasmapto(l:plug_name, 'i')
-			execute 'imap ' .. l:c .. ' ' .. l:plug_name
+	if pos != [0, 0]
+		setpos('.', csrpos)
+		const n = str.Match_chars(getline('.', pos[0]), '.',
+					  col('.') - 1, pos[1] - 1)
+		execute "normal! i" .. repeat("\<Del>", n + 1)
+		setpos('.', csrpos)
+	endif
+enddef
+# }}}
+
+def Define_default_mappings()
+	# Define_default_mappings() implementation {{{
+	for [c, plug_name] in PLUG_NAMES->items()
+		if !hasmapto(plug_name, 'i')
+			execute 'imap ' .. c .. ' ' .. plug_name
 		endif
 	endfor
-endfunction
-"}}}
+enddef
+# }}}
 
-function s:define_plug_mappings()
-	" s:define_plug_mappings() implementation {{{
-	execute 'inoremap <expr> ' .. s:plug_names['('] .. ' '
-		\ .. expand('<SID>') .. 'autocomplete_delimiters("(", ")")'
-	execute 'inoremap <expr> ' .. s:plug_names['['] .. ' '
-		\ .. expand('<SID>') .. 'autocomplete_delimiters("[", "]")'
-	execute 'inoremap <expr> ' .. s:plug_names['{'] .. ' '
-		\ .. expand('<SID>') .. 'autodeli_brace()'
-	for l:close in s:closing_delims
-		execute 'inoremap <expr> ' .. s:plug_names[l:close] .. ' '
-		    \ .. expand('<SID>') .. 'skip_closing("' .. l:close .. '")'
+def Define_plug_mappings()
+	# Define_plug_mappings() implementation {{{
+	execute 'inoremap <expr> ' .. PLUG_NAMES['('] .. ' '
+		.. 'Autocomplete_delimiters("(", ")")'
+	execute 'inoremap <expr> ' .. PLUG_NAMES['['] .. ' '
+		.. 'Autocomplete_delimiters("[", "]")'
+	execute 'inoremap <expr> ' .. PLUG_NAMES['{'] .. ' '
+		.. 'Autodeli_brace()'
+	for close in CLOSING_DELIMS
+		execute 'inoremap <expr> ' .. PLUG_NAMES[close] .. ' '
+		    .. 'Skip_closing("' .. close .. '")'
 	endfor
-	execute 'inoremap <expr> ' .. s:plug_names["'"] .. ' '
-		\ .. expand('<SID>') .. 'autocomplete_quotes("''")'
-	execute 'inoremap <expr> ' .. s:plug_names['"'] .. ' '
-		\ .. expand('<SID>') .. 'autocomplete_quotes("\"")'
-	execute 'inoremap <expr> ' .. s:plug_names['<BS>'] .. ' '
-		\ .. expand('<SID>') .. 'autodeli_eat("\<BS>")'
-	execute 'inoremap <expr> ' .. s:plug_names['<C-H>'] .. ' '
-		\ .. expand('<SID>') .. 'autodeli_eat("\<BS>")'
-	execute 'inoremap <expr> ' .. s:plug_names['<C-U>'] .. ' '
-		\ .. expand('<SID>') .. 'autodeli_eat("\<C-G>u\<C-U>")'
-	execute 'inoremap <expr> ' .. s:plug_names['<C-W>'] .. ' '
-		\ .. expand('<SID>') .. 'autodeli_eat("\<C-W>")'
-	execute 'inoremap <expr> ' .. s:plug_names['<CR>'] .. ' '
-		\ .. expand('<SID>') .. 'autodeli_enter()'
-	execute 'inoremap <expr> ' .. s:plug_names['<Tab>'] .. ' '
-		\ .. expand('<SID>') .. 'autodeli_tab()'
-endfunction
-"}}}
+	execute 'inoremap <expr> ' .. PLUG_NAMES["'"] .. ' '
+		.. 'Autocomplete_quotes("''")'
+	execute 'inoremap <expr> ' .. PLUG_NAMES['"'] .. ' '
+		.. 'Autocomplete_quotes("\"")'
+	execute 'inoremap <expr> ' .. PLUG_NAMES['<BS>'] .. ' '
+		.. 'Autodeli_eat("\<BS>")'
+	execute 'inoremap <expr> ' .. PLUG_NAMES['<C-H>'] .. ' '
+		.. 'Autodeli_eat("\<BS>")'
+	execute 'inoremap <expr> ' .. PLUG_NAMES['<C-U>'] .. ' '
+		.. 'Autodeli_eat("\<C-G>u\<C-U>")'
+	execute 'inoremap <expr> ' .. PLUG_NAMES['<C-W>'] .. ' '
+		.. 'Autodeli_eat("\<C-W>")'
+	execute 'inoremap <expr> ' .. PLUG_NAMES['<CR>'] .. ' '
+		.. 'Autodeli_enter()'
+	execute 'inoremap <expr> ' .. PLUG_NAMES['<Tab>'] .. ' '
+		.. 'Autodeli_tab()'
+enddef
+# }}}
 
-" Ensures: returns the byte index of the unescaped delimiter matching that
-"	   found at {index} in {string} if both delimiters reside in or, for
-"	   quotes, delimit the same string (see autodeli.txt for the
-"	   definition of a string). If no such delimiter is found, the
-"	   delimiter to consider is not a valid, unescaped delimiter or within
-"	   a string, or {index} is out of range, returns -1.
-function s:str_matched(string, index)
-	" s:str_matched() implementation {{{
-	let l:bidx = -1
-	let l:delim = a:string[a:index]
-	if index(keys(s:pairs), l:delim) == -1
-		return l:bidx
-	endif
-	let l:quote_indices = klen#str#byteidx_quote_positions(a:string,
-							     \ a:index)
-	if l:quote_indices == [-1, -1]
-	 \ || klen#str#char_escaped(a:string, a:index)
-		return l:bidx
+# Ensures: returns the byte index of the unescaped delimiter matching that
+#	   found at {index} in {string} if both delimiters reside in or, for
+#	   quotes, delimit the same string (see autodeli.txt for the
+#	   definition of a string). If no such delimiter is found, the
+#	   delimiter to consider is not a valid, unescaped delimiter or within
+#	   a string, or {index} is out of range, returns -1.
+def Str_matched(argstr: string, idx: number): number
+	# Str_matched() implementation {{{
+	var bidx = -1
+	const delim = argstr[idx]
+	if PAIRS->keys()->index(delim) == -1
+		return bidx
 	endif
 
-	if l:delim ==# "'" || l:delim ==# '"'
-		if l:quote_indices[0] == a:index
-			let l:bidx = l:quote_indices[1]
-		elseif l:quote_indices[1] == a:index
-			let l:bidx = l:quote_indices[0]
+	const quote_indices = str.Byteidx_quote_positions(argstr, idx)
+	if quote_indices == [-1, -1] || str.Char_escaped(argstr, idx)
+		return bidx
+	endif
+
+	if delim == "'" || delim == '"'
+		if quote_indices[0] == idx
+			bidx = quote_indices[1]
+		elseif quote_indices[1] == idx
+			bidx = quote_indices[0]
 		endif
 	else
-		let l:end = (l:quote_indices[1] == -1)
-			  \ ? strlen(a:string) : l:quote_indices[1]
-		let l:range = (index(s:closing_delims, l:delim) >= 0)
-			    \ ? range(a:index - 1, quote_indices[0] + 1, -1)
-			    \ : range(a:index + 1, l:end - 1)
-		let l:stack = [a:index]
-		for i in l:range
-			if a:string[i] ==# s:pairs[l:delim]
-			 \ && !klen#str#char_escaped(a:string, i)
-				if klen#genlib#peek(l:stack) == a:index
-					let l:bidx = i
+		const end = (quote_indices[1] == -1) ? argstr->len()
+						     : quote_indices[1]
+		const range = (CLOSING_DELIMS->index(delim) >= 0)
+			       ? range(idx - 1, quote_indices[0] + 1, -1)
+			       : range(idx + 1, end - 1)
+		final stack = [idx]
+
+		for i in range
+			if argstr[i] == PAIRS[delim]
+			   && !str.Char_escaped(argstr, i)
+				if stack->Peek() == idx
+					bidx = i
 					break
 				else
-					call klen#genlib#pop(l:stack)
+					stack->Pop()
 				endif
-			elseif a:string[i] ==# l:delim
-			     \ && !klen#str#char_escaped(a:string, i)
-				call klen#genlib#push(l:stack, i)
+			elseif argstr[i] == delim
+					&& !str.Char_escaped(argstr, i)
+				stack->Push(i)
 			endif
 		endfor
 	endif
-	return l:bidx
-endfunction
-"}}}
+	return bidx
+enddef
+# }}}
 
-call s:define_plug_mappings()
-call s:define_default_mappings()
-
-let &cpoptions = s:save_cpo
+Define_plug_mappings()
+Define_default_mappings()

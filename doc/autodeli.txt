@@ -1,4 +1,4 @@
-*autodeli.txt*	For Vim version 8.2	Last change: 2022 Jan 13
+*autodeli.txt*	For Vim version 8.2	Last change: 2022 Jan 28
 
 		    AUTODELI DOCUMENTATION - by Kenny Lam
 
@@ -18,24 +18,24 @@ matching delimiters are completed and deleted automatically.
 1.	Function list				*autodeli-function-list*
 
 Auto-completion:
-	s:autocomplete_delimiters()	insert a pair of delimiters at once
-	s:autocomplete_quotes()		insert a pair of quotes at once if the
+	Autocomplete_delimiters()	insert a pair of delimiters at once
+	Autocomplete_quotes()		insert a pair of quotes at once if the
 					given quote is entered outside a
 					string
-	s:skip_closing()		skip a closing delimiter if no
+	Skip_closing()			skip a closing delimiter if no
 					characters or only whitespace separate
 					it and the cursor
 
 Buffers:
-	s:matched()			gets the matching delimiter of the
+	Matched()			gets the matching delimiter of the
 					delimiter at the given byte index
 
 Overload:
-	s:autodeli_eat()		overload a backspace character for
+	Autodeli_eat()			overload a backspace character for
 					Insert mode
-	s:autodeli_brace()		overload { for Insert mode
-	s:autodeli_enter()		overload <CR> for Insert mode
-	s:autodeli_tab()		overload <Tab> for Insert mode
+	Autodeli_brace()		overload { for Insert mode
+	Autodeli_enter()		overload <CR> for Insert mode
+	Autodeli_tab()			overload <Tab> for Insert mode
 
 ==============================================================================
 2.	Function documentation			*autodeli-functions*
@@ -45,10 +45,9 @@ of which contains functions sorted in the same fashion. Also see
 |autodeli-function-details| for more comprehensive descriptions of certain
 functions.
 
-s:autocomplete_delimiters({opening}, {closing})	*s:autocomplete_delimiters()*
-	Expects: type({opening}) == v:t_string
-		 && type({closing}) == v:t_string
-		 && len({opening}) == 1 && len({closing}) == 1
+						*Autocomplete_delimiters()*
+Autocomplete_delimiters({opening}: string, {closing}: string): string
+	Expects: none
 	Ensures: returns a string comprising characters to be interpreted by
 		 the {rhs} of a mapping. This string effectively inserts
 		 {opening} and {closing} simultaneously and positions the
@@ -56,20 +55,36 @@ s:autocomplete_delimiters({opening}, {closing})	*s:autocomplete_delimiters()*
 		 characters: {opening}, then {closing}, and finally <Left>.
 		 This function only works in Insert mode.
 
-s:autocomplete_quotes({quote})			*s:autocomplete_quotes()*
-	Expects: type({quote}) == v:t_string && len({quote}) == 1
+Autocomplete_quotes({quote}: string): string	*Autocomplete_quotes()*
+	Expects: len({quote}) == 1
 	Ensures: returns a string comprising characters to be interpreted by
 		 the {rhs} of a mapping. This string performs the same as that
-		 of |s:autocomplete_delimiters()|, but specially handles
-		 quotes: quotes are completed automatically if they are
-		 entered outside a string and after a non-word character. If a
-		 quote is entered when the cursor is in a string whose
-		 delimiters match the quote, the string imitates
-		 |s:skip_closing()| so long as the preceding character is not
-		 a backslash. This function only works in Insert mode.
+		 of |Autocomplete_delimiters()|, but specially handles quotes:
+		 quotes are completed automatically if they are entered
+		 outside a string and after a non-word character. If a quote
+		 is entered when the cursor is in a string whose delimiters
+		 match the quote, the string imitates |Skip_closing()| so long
+		 as the quote would not be escaped. For example, where the
+		 cursor is denoted by @,
+			"\@"
+		 entering a " here yields
+			"\"@"
+		 while a " in this string
+			"\\@"
+		 results in
+			"\\"@
+		 This function only works in Insert mode.
 
-s:autodeli_eat({delchar})				*s:autodeli_eat()*
-	Expects: type({delchar}) == v:t_string
+Autodeli_brace()				*Autodeli_brace()*
+	Expects: none
+	Ensures: returns a string comprising characters to be interpreted by
+		 the {rhs} of a mapping. This string executes the behavior of
+		 entering an opening brace |autodeli-function-details|. This
+		 function only works in Insert mode.
+
+Autodeli_eat({delchar}: string): string		*Autodeli_eat()*
+	Expects: {delchar} is a backspacing character ("\<BS>", "\<C-U>",
+		 etc.).
 	Ensures: returns a string comprising characters to be interpreted by
 		 the {rhs} of a mapping. This string effectively deletes a
 		 pair of delimiters when both the opening and closing
@@ -94,14 +109,7 @@ s:autodeli_eat({delchar})				*s:autodeli_eat()*
 		 results in
 			@ ~
 
-s:autodeli_brace()				*s:autodeli_brace()*
-	Expects: none
-	Ensures: returns a string comprising characters to be interpreted by
-		 the {rhs} of a mapping. This string executes the behavior of
-		 entering an opening brace |autodeli-function-details|. This
-		 function only works in Insert mode.
-
-s:autodeli_enter()				*s:autodeli_enter()*
+Autodeli_enter(): string			*Autodeli_enter()*
 	Expects: none
 	Ensures: returns a string comprising characters to be interpreted by
 		 the {rhs} of a mapping. This string fulfills the second
@@ -109,7 +117,7 @@ s:autodeli_enter()				*s:autodeli_enter()*
 		 |autodeli-function-details|. This function only works in
 		 Insert mode.
 
-s:autodeli_tab()				*s:autodeli_tab()*
+Autodeli_tab(): string				*Autodeli_tab()*
 	Expects: none
 	Ensures: returns a string comprising characters to be interpreted by
 		 the {rhs} of a mapping. This string effectively moves the
@@ -119,27 +127,27 @@ s:autodeli_tab()				*s:autodeli_tab()*
 		 Otherwise, it inserts a <Tab>. This function only works in
 		 Insert mode.
 
-s:matched({index} [, {lnum}])				*s:matched()*
-	Expects: type({index}) == v:t_number
-		 && 0 <= {index} < strlen(getline{lnum})
+						*Matched()*
+Matched({idx}: number [, {lnum}: number]): list<number>
+	Expects: 0 <= {idx} < strlen(getline('.'))
 		 Optional parameters:
-		 type({lnum}) == v:t_number
-		 && 1 <= {lnum} <= line('$')
+		 1 <= {lnum} <= line('$')
+		 && 0 <= {idx} < strlen(getline({lnum}))
 	Ensures: returns a List containing the position of the delimiter
-		 matching that found at byte index {index} on the line
-		 indicated by {lnum}. By default, {lnum} is the cursor's line
-		 number. If the delimiter to consider is not a valid delimiter
-		 or no matching delimiter is found, returns [0, 0].
+		 matching that found at byte index {idx} on the line indicated
+		 by {lnum}. By default, {lnum} is the cursor's line number. If
+		 the delimiter to consider is not a valid delimiter or no
+		 matching delimiter is found, returns [0, 0].
 			Index	Meaning ~
 			0	line number
 			1	column number
 
-s:skip_closing({closing})			*s:skip_closing()*
-	Expects: type({closing}) == v:t_string && len({closing}) == 1
-		 && {closing} is in the List of valid delimiters.
+Skip_closing({closing}: string): string		*Skip_closing()*
+	Expects: len({closing}) == 1 && {closing} is in the List of valid
+		 closing delimiters.
 	Ensures: returns a string comprising characters to be interpreted by
 		 the {rhs} of a mapping. This string executes the behavior of
-		 entering {closing} when the cursor is between the delimiters
+		 typing {closing} when the cursor is between the delimiters
 		 that include {closing} |autodeli-closing-delimiter|. This
 		 function only works in Insert mode.
 
@@ -288,7 +296,7 @@ This section contains further descriptions of some of the functions listed in
 are lexically ordered. For an overview of them, see |autodeli-functions|.
 
 
-s:autodeli_eat() ~
+Autodeli_eat() ~
 
 This function provides quick deletion of a matching pair. If the first
 non-whitespace character following the cursor is a matched closing delimiter
@@ -334,7 +342,7 @@ produces
 	struct @ ~
 
 
-s:autodeli_brace() ~
+Autodeli_brace() ~
 
 Out of all the auto-completing delimiters, braces are the most special:
 entering an '{' can result in one of three outcomes, listed from highest to
@@ -397,9 +405,9 @@ triggered, the cursor line is deleted. This behavior makes copying-pasting
 text into the braces quicker.
 
 
-s:matched() ~
+Matched() ~
 
-s:matched() does the heavy lifting in this plugin: it checks whether the given
+Matched() does the heavy lifting in this plugin: it checks whether the given
 delimiter is matched according to the rules described in this document. Its
 return value is a position, which comprises a line number and column number.
 

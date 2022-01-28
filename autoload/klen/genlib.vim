@@ -1,78 +1,75 @@
-" Library of general functions.
-" Documentation supplied in klen_lib.txt.
-"
-" 2021 Oct 25 - Written by Kenny Lam.
+vim9script
 
-let s:save_cpo = &cpoptions
-set cpoptions&vim
+# Library of general functions.
+# Documentation supplied in klen_lib.txt.
+#
+# 2021 Oct 25 - Written by Kenny Lam.
 
-function klen#genlib#peek(stack)
-	" klen#genlib#peek() implementation {{{
-	return a:stack[len(a:stack) - 1]
-endfunction
-"}}}
+export def Peek(stack: list<any>): any
+	# Peek() implementation {{{
+	return stack[-1]
+enddef
+# }}}
 
-function klen#genlib#pop(stack)
-	" klen#genlib#pop() implementation {{{
-	call remove(a:stack, len(a:stack) - 1)
-endfunction
-"}}}
+export def Push(stack: list<any>, item: any)
+	# Push() implementation {{{
+	add(stack, item)
+enddef
+# }}}
 
-function klen#genlib#push(stack, item)
-	" klen#genlib#push() implementation {{{
-	call add(a:stack, a:item)
-endfunction
-"}}}
+export def Pop(stack: list<any>)
+	# Pop() implementation {{{
+	remove(stack, -1)
+enddef
+# }}}
 
-function klen#genlib#cursor_char(prev = v:false, pat = '')
-	" klen#genlib#cursor_char() implementation {{{
-	let l:csr_line = getline('.')
-	let l:csr_idx = charcol('.') - 1
-	let l:csr_char = ''
-	if a:prev
-		for i in range(l:csr_idx - 1, 0, -1)
-			let l:char = slice(l:csr_line, i, i + 1)
-			if l:char =~ a:pat
-				let l:csr_char = l:char
+export def Cursor_char(prev = false, pat = ''): string
+	# Cursor_char() implementation {{{
+	const csr_line = getline('.')
+	const csr_idx = charcol('.') - 1
+	var csr_char = ''
+	if prev
+		for i in range(csr_idx - 1, 0, -1)
+			const char = csr_line[i]
+			if char =~ pat
+				csr_char = char
 				break
 			endif
 		endfor
 	else
-		for l:char in split(slice(l:csr_line, l:csr_idx), '\zs')
-			if l:char =~ a:pat
-				let l:csr_char = l:char
+		for char in csr_line[csr_idx :]->split('\zs')
+			if char =~ pat
+				csr_char = char
 				break
 			endif
 		endfor
 	endif
-	return l:csr_char
-endfunction
-"}}}
+	return csr_char
+enddef
+# }}}
 
-function klen#genlib#cursor_char_byte(prev = v:false, pat = '')
-	" klen#genlib#cursor_char_byte() implementation {{{
-	let l:csr_line = getline('.')
-	let l:csr_idx = charcol('.') - 1
-	let l:c_bidx = -1
-	if a:prev
-		for i in range(l:csr_idx - 1, 0, -1)
-			let l:char = slice(l:csr_line, i, i + 1)
-			if l:char =~ a:pat
-				let l:c_bidx = i
+export def Cursor_char_byte(prev = false, pat = ''): number
+	# Cursor_char_byte() implementation {{{
+	const csr_line = getline('.')
+	const csr_idx = charcol('.') - 1
+	var c_bidx = -1
+	if prev
+		for i in range(csr_idx - 1, 0, -1)
+			const char = csr_line[i]
+			if char =~ pat
+				c_bidx = i
 				break
 			endif
 		endfor
 	else
-		for i in range(l:csr_idx, strcharlen(l:csr_line) - 1)
-			let l:char = slice(l:csr_line, i, i + 1)
-			if l:char =~ a:pat
-				let l:c_bidx = i
+		for i in range(csr_idx, csr_line->strcharlen() - 1)
+			const char = csr_line[i]
+			if char =~ pat
+				c_bidx = i
 				break
 			endif
 		endfor
 	endif
-	return byteidx(l:csr_line, l:c_bidx)
-endfunction
-"}}}
-
-let &cpoptions = s:save_cpo
+	return csr_line->byteidx(c_bidx)
+enddef
+# }}}
