@@ -1,4 +1,4 @@
-*klen_lib.txt*	For Vim version 8.2	Last change: 2022 Jan 27
+*klen_lib.txt*	For Vim version 8.2	Last change: 2022 Jan 31
 
 			  Library of custom functions
 
@@ -86,16 +86,16 @@ klen#genlib#Cursor_char_byte([{prev}: bool [, {pat}: string]]): number
 
 					*klen#str#Byteidx_quote_positions()*
 klen#str#Byteidx_quote_positions({str}: string, {idx}: number): list<number>
-	Expects: none
+	Expects: {idx} >= 0
 	Ensures: returns a List indicating the byte indices of the quotation
 		 marks of the string containing the byte index {idx} in the
 		 string {str}. If an unmatched quote precedes {idx}, returns a
 		 List containing that quote's byte index and a -1. This
 		 function can be used to check if {idx} is within a string,
 		 which may be delimited with single or double quotes
-		 |klen#str#Get_same_delimiters()|. If {idx} is not in a string
-		 or is out of range ({idx} < 0 or {idx} >= strlen({str})),
-		 returns [-1, -1].
+		 |klen#str#Get_same_delimiters()|. If {idx} is not in a
+		 string, returns [-1, -1]. If {idx} >= strlen({str}), the
+		 function just looks for the unmatched quote.
 			Index	Quote ~
 			0	opening
 			1	closing
@@ -163,16 +163,16 @@ klen#str#Get_same_delimiters({str}: string, {delims}: string
 		 If {unmatched} is true,
 			1	Unmatched
 
-		 Examples:
+		 Examples: >
 			:echo klen#str#Get_same_delimiters("\"'Twas\"", "'",
 						\ v:true)
-		 returns [[], []];
+<		 returns [[], []]; >
 			:echo klen#str#Get_same_delimiters("'\\''", "'",
 						\ v:true)
-		 returns [[0, 3], []]; and
+<		 returns [[0, 3], []]; and >
 			:echo klen#str#Get_same_delimiters("'\"'A \"start",
 						\ '"', v:true)
-		 returns [[], [5]].
+<		 returns [[], [5]].
 
 						*klen#str#In_string()*
 klen#str#In_string({str}: string, {idx}: number): bool
@@ -185,17 +185,31 @@ klen#str#In_string({str}: string, {idx}: number): bool
 						*klen#str#Match_chars()*
 klen#str#Match_chars({expr}: any, {pat}: string,
 		     {start}: any, {end}: any): number
-	Expects: if type({expr}) == v:t_list,
+	Expects: if type({expr}) == v:t_string,
+			0 <= {start} < len({expr}) && 0 <= {end} < len({expr})
+			&& {start} <= {end}
+		 else if type({expr}) == v:t_list,
 			if type({start}) == v:t_list,
 				len({start}) == 2
 				&& 0 <= {start}[0] < len({expr})
+				&& 0 <= {start}[1] < len({expr}[{start}[0]])
 			if type({end}) == v:t_list,
 				len({end}) == 2
 				&& 0 <= {end}[0] < len({expr})
+				&& 0 <= {end}[1] < len({expr}[{end}[0]])
+			if type({start}) == v:t_list
+			   && type({end}) == v:t_list,
+				{start}[0] <= {end}[0]
+				&& {start}[1] <= {end}[1]
 	Ensures: returns the number of characters, including new lines,
-		 between the byte indices {start} and {end} in the string
-		 {expr} if all characters match {pat}. If {expr} is a List,
-		 {start} and {end} may also appear as Lists of the form
+		 between the byte indices {start} (included) and {end}
+		 (excluded) in the string {expr} if all characters match
+		 {pat}. For example, >
+			klen#str#Match_chars('foo()', '.', 1, 3)
+<		 returns 2 (the characters checked are "oo").
+
+		 If {expr} is a List, {start} and {end} may also appear as
+		 Lists of the form
 			[{lidx}, {byteidx}]
 		 In this case, the characters after {start}, before {end}, and
 		 between the line indices of {start} and {end} in {expr} are
@@ -208,15 +222,9 @@ klen#str#Match_chars({expr}: any, {pat}: string,
 		 If 'delcombine' is set, composing characters are counted
 		 separately. Otherwise, they are ignored.
 
-		 If {expr} is a string and {start} < 0 or
-		 {end} > strlen({expr}), the start or end of {expr} will be
-		 used instead for the offending argument. If {expr} is a List
-		 and the {byteidx} of {start} or {end} exceeds the bounds of
-		 its corresponding string in {expr}, the start or end of that
-		 string will be used instead. If {end} appears before {start}
-		 or a character does not match {pat}, returns -1. This
-		 function can be used to check whether certain characters lie
-		 between {start} and {end}.
+		 If {end} appears before {start} or a character does not match
+		 {pat}, returns -1. This function can be used to check whether
+		 certain characters lie between {start} and {end}.
 
 
  vim:tw=78:isk=!-~,^*,^\|,^\":ts=8:noet:ft=help:norl:
