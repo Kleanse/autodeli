@@ -83,13 +83,14 @@ def Autocomplete_quotes(quote: string): string
 	const csrline = getline('.')
 	const csridx = col('.') - 1
 	const cbidx = genlib.Cursor_char_byte(false, '\S')
-	const c = csrline[cbidx]	# character can be empty.
+	const c = (cbidx == -1) ? '' : csrline[cbidx]
 	const csr_quotes = str.Byteidx_quote_positions(csrline[: cbidx],
 						       csridx)
+	const csr_in_string = csr_quotes != [-1, -1]
 
 	if c == quote && cbidx == csr_quotes[1]
 		rhs = repeat("\<Del>", cbidx - csridx) .. RIGHT
-	elseif (cbidx == csr_quotes[0] || csr_quotes == [-1, -1])
+	elseif (csridx == csr_quotes[0] || !csr_in_string)
 			&& genlib.Cursor_char(true) =~ '\W\|^$'
 		rhs = Autocomplete_delimiters(quote, quote)
 	endif
@@ -227,9 +228,16 @@ def Autodeli_tab(): string
 
 	const csrline = getline('.')
 	const cbidx = genlib.Cursor_char_byte(false, '\S')
+	if cbidx == -1
+		return rhs
+	endif
+	const c = csrline[cbidx]
+	const c_is_quote = c == "'" || c == '"'
 
-	if CLOSING_DELIMS->index(csrline[cbidx]) >= 0
-	   && Matched(cbidx)[0] == line('.')
+	if c_is_quote
+	      && str.Byteidx_quote_positions(csrline, cbidx)[1] == cbidx
+	   || !c_is_quote && CLOSING_DELIMS->index(c) >= 0
+	      && Matched(cbidx)[0] == line('.')
 		rhs = repeat(RIGHT, cbidx - (col('.') - 1) + 1)
 	endif
 	return rhs
@@ -311,7 +319,7 @@ def Delete_closing(indices: list<number>)
 	# For each byte index in indices, deletes up to and including the first
 	# non-whitespace character after the cursor (crossing multiple lines if
 	# necessary) so long as the byte index is at or exceeds the cursor's
-	# byte index. For example, where @ indicates the cursor and indices
+	# byte index. For example, where @ indicates the cursor and {indices}
 	# is [2, 3], the following text
 	#			  1
 	# Byte index:	012345678901234
@@ -320,8 +328,8 @@ def Delete_closing(indices: list<number>)
 	# Byte index:	012
 	#		  @
 	# If such a non-whitespace character is a closing brace and a semicolon
-	# immediately succeeds it, deletes the semicolon as well: given indices
-	# [0, 1], the text
+	# immediately succeeds it, deletes the semicolon as well: given the
+	# indices [0, 1], the text
 	# Byte index:	0123
 	#		@};}
 	# becomes
@@ -329,7 +337,7 @@ def Delete_closing(indices: list<number>)
 	#		@
 	# Delete_closing() implementation {{{
 	const csrpos = getcurpos()
-	var pos = [0, 0]
+	var end = [0, 0]
 	for bidx in indices
 		if bidx < csrpos[2] - 1
 			break
@@ -344,13 +352,13 @@ def Delete_closing(indices: list<number>)
 			endif
 		endif
 		cursor(tmp[0], tmp[1] + 1)
-		pos = tmp
+		end = tmp
 	endfor
 
-	if pos != [0, 0]
+	if end != [0, 0]
 		setpos('.', csrpos)
-		const n = str.Match_chars(getline('.', pos[0]), '.',
-					  col('.') - 1, pos[1] - 1)
+		const n = str.Match_chars(getline('.', end[0]), '.',
+					  csrpos[2] - 1, end[1] - 1)
 		execute "normal! i" .. repeat("\<Del>", n + 1)
 		setpos('.', csrpos)
 	endif
@@ -399,11 +407,11 @@ enddef
 # }}}
 
 # Ensures: returns the byte index of the unescaped delimiter matching that
-#	   found at {index} in {string} if both delimiters reside in or, for
-#	   quotes, delimit the same string (see autodeli.txt for the
-#	   definition of a string). If no such delimiter is found, the
-#	   delimiter to consider is not a valid, unescaped delimiter or within
-#	   a string, or {index} is out of range, returns -1.
+#	   found at {idx} in {argstr} if both delimiters reside in or, for
+#	   quotes, delimit the same string (see autodeli.txt for the definition
+#	   of a string). If no such delimiter is found, the delimiter to
+#	   consider is not a valid, unescaped delimiter or within a string,
+#	   returns -1.
 def Str_matched(argstr: string, idx: number): number
 	# Str_matched() implementation {{{
 	var bidx = -1
@@ -413,7 +421,8 @@ def Str_matched(argstr: string, idx: number): number
 	endif
 
 	const quote_indices = str.Byteidx_quote_positions(argstr, idx)
-	if quote_indices == [-1, -1] || str.Char_escaped(argstr, idx)
+	const idx_in_string = quote_indices != [-1, -1]
+	if !idx_in_string || str.Char_escaped(argstr, idx)
 		return bidx
 	endif
 

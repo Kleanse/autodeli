@@ -37,8 +37,7 @@ export def Byteidx_quote_positions(str: string, idx: number): list<number>
 	for i in range(indices[0]->len())
 		if indices[0][i] > idx
 			if i->and(1)
-				return [indices[0][i - 1],
-					indices[0][i]]
+				return [indices[0][i - 1], indices[0][i]]
 			else
 				break
 			endif
@@ -141,21 +140,17 @@ export def Match_chars(expr: any, pat: string, start: any, end: any): number
 
 	if realend[0] < realstart[0] || realstart[0] == realend[0]
 	   && realend[1] < realstart[1]
-		# end is a line before start or if both are on the same line,
-		# end is some byte before start.
+		# end is on a line before start or if both are on the same
+		# line, end is some byte before start.
 		return -1
-	endif
-	if realstart[1] < 0
-		realstart[1] = 0
-	endif
-	if realend[1] < 0
-		realend[1] = 0
 	endif
 
 	var n_chars = 0
 	if realstart[0] == realend[0]
-		for c in realexpr[realstart[0]][realstart[1] : realend[1] - 1]
-						->split('\zs')
+		# Use slice() so that realend[1] == 0 does not fetch the entire
+		# string (via expr-[:]).
+		for c in realexpr[realstart[0]]
+				->slice(realstart[1], realend[1])->split('\zs')
 			if c !~ pat
 				return -1
 			endif
@@ -182,7 +177,7 @@ export def Match_chars(expr: any, pat: string, start: any, end: any): number
 		endfor
 		++n_chars
 	endfor
-	for c in realexpr[realend[0]][: realend[1] - 1]->split('\zs')
+	for c in realexpr[realend[0]]->slice(0, realend[1])->split('\zs')
 		if c !~ pat
 			return -1
 		endif
@@ -225,7 +220,7 @@ def Find_quotes(str: string, quote: string,
 		if c =~ qt_pat
 			if !state.in_str && !state.pc_is_wc
 			   || state.in_str && state.quote == c
-			   && !state.n_backs->and(1)
+			      && !state.n_backs->and(1)
 				if unmatched_indices->empty()
 					unmatched_indices->Push(bidx)
 				else
