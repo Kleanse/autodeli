@@ -377,32 +377,41 @@ enddef
 
 def Define_plug_mappings()
 	# Define_plug_mappings() implementation {{{
+	# Vim9 expression mappings can access items local to the script in
+	# which they were defined. This behavior means <SID> is unneeded here
+	# for referring to script-local items; however, if these mappings are
+	# defined elsewhere, e.g., in an editing session script (generated via
+	# ":mksession"), the mappings will not be defined in this script and
+	# thus cannot access the relevant script-local items. (Errors such as
+	# "E117: Unknown function" will be issued.) Therefore, <SID> is still
+	# used to avoid such a problem and suppress polluting the global
+	# namespace.
 	execute 'inoremap <expr> ' .. PLUG_NAMES['('] .. ' '
-		.. 'Autocomplete_delimiters("(", ")")'
+		.. expand('<SID>') .. 'Autocomplete_delimiters("(", ")")'
 	execute 'inoremap <expr> ' .. PLUG_NAMES['['] .. ' '
-		.. 'Autocomplete_delimiters("[", "]")'
+		.. expand('<SID>') .. 'Autocomplete_delimiters("[", "]")'
 	execute 'inoremap <expr> ' .. PLUG_NAMES['{'] .. ' '
-		.. 'Autodeli_brace()'
+		.. expand('<SID>') .. 'Autodeli_brace()'
 	for close in CLOSING_DELIMS
 		execute 'inoremap <expr> ' .. PLUG_NAMES[close] .. ' '
-		    .. 'Skip_closing("' .. close .. '")'
+		    .. expand('<SID>') .. 'Skip_closing("' .. close .. '")'
 	endfor
 	execute 'inoremap <expr> ' .. PLUG_NAMES["'"] .. ' '
-		.. 'Autocomplete_quotes("''")'
+		.. expand('<SID>') .. 'Autocomplete_quotes("''")'
 	execute 'inoremap <expr> ' .. PLUG_NAMES['"'] .. ' '
-		.. 'Autocomplete_quotes("\"")'
+		.. expand('<SID>') .. 'Autocomplete_quotes("\"")'
 	execute 'inoremap <expr> ' .. PLUG_NAMES['<BS>'] .. ' '
-		.. 'Autodeli_eat("\<BS>")'
+		.. expand('<SID>') .. 'Autodeli_eat("\<BS>")'
 	execute 'inoremap <expr> ' .. PLUG_NAMES['<C-H>'] .. ' '
-		.. 'Autodeli_eat("\<BS>")'
+		.. expand('<SID>') .. 'Autodeli_eat("\<BS>")'
 	execute 'inoremap <expr> ' .. PLUG_NAMES['<C-U>'] .. ' '
-		.. 'Autodeli_eat("\<C-G>u\<C-U>")'
+		.. expand('<SID>') .. 'Autodeli_eat("\<C-G>u\<C-U>")'
 	execute 'inoremap <expr> ' .. PLUG_NAMES['<C-W>'] .. ' '
-		.. 'Autodeli_eat("\<C-W>")'
+		.. expand('<SID>') .. 'Autodeli_eat("\<C-W>")'
 	execute 'inoremap <expr> ' .. PLUG_NAMES['<CR>'] .. ' '
-		.. 'Autodeli_enter()'
+		.. expand('<SID>') .. 'Autodeli_enter()'
 	execute 'inoremap <expr> ' .. PLUG_NAMES['<Tab>'] .. ' '
-		.. 'Autodeli_tab()'
+		.. expand('<SID>') .. 'Autodeli_tab()'
 enddef
 # }}}
 
