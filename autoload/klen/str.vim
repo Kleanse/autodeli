@@ -10,8 +10,8 @@ const Push = genlib.Push
 #
 # 2021 Oct 25 - Written by Kenny Lam.
 
-export def Byteidx_quote_positions(str: string, idx: number): list<number>
-	# Byteidx_quote_positions() implementation {{{
+export def Bidx_quote_positions(str: string, idx: number): list<number>
+	# Bidx_quote_positions() implementation {{{
 
 	# Strings delimited by single quotes and strings delimited by double
 	# quotes do not overlap, so they can be merged and sorted correctly.
@@ -127,7 +127,7 @@ enddef
 
 export def In_string(str: string, idx: number): bool
 	# In_string() implementation {{{
-	return Byteidx_quote_positions(str, idx) != [-1, -1]
+	return Bidx_quote_positions(str, idx) != [-1, -1]
 enddef
 # }}}
 
@@ -184,6 +184,36 @@ export def Match_chars(expr: any, pat: string, start: any, end: any): number
 		n_chars += (&delcombine) ? 1 : strchars(c)
 	endfor
 	return n_chars
+enddef
+# }}}
+
+export def Screencol2bidx(str: string, screencol: number): number
+	# Screencol2bidx() implementation {{{
+	# Algorithm is guess and check: assume that byte indices and screen
+	# columns are equal. If they are not equal, iteratively decrement the
+	# byte index corresponding to {screencol} until it equals {screencol}
+	# via strdisplaywidth().
+	var bidx = screencol - 1
+	if bidx >= str->strlen()
+		bidx = str->strlen() - 1
+	endif
+
+	var screen_width = str->strpart(0, bidx + 1)->strdisplaywidth()
+	var prev_width = 0	# Used to check if screencol falls within a
+				# multi-screen-column byte index.
+
+	while screen_width > screencol && bidx >= 0
+		prev_width = screen_width
+		--bidx
+		screen_width = str->strpart(0, bidx + 1)->strdisplaywidth()
+	endwhile
+
+	if screen_width == screencol
+		return bidx
+	elseif screen_width < screencol && screencol < prev_width
+		return bidx + 1
+	endif
+	return -1
 enddef
 # }}}
 

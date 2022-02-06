@@ -84,7 +84,7 @@ def Autocomplete_quotes(quote: string): string
 	const csridx = col('.') - 1
 	const cbidx = genlib.Cursor_char_byte(false, '\S')
 	const c = (cbidx == -1) ? '' : csrline[cbidx]
-	const csr_quotes = str.Byteidx_quote_positions(csrline[: cbidx],
+	const csr_quotes = str.Bidx_quote_positions(csrline[: cbidx],
 						       csridx)
 	const csr_in_string = csr_quotes != [-1, -1]
 
@@ -141,8 +141,8 @@ def Autodeli_eat(delchar: string): string
 	#     within [last_open_pos[1] - 1, csrpos[2] - 1).
 	while CLOSING_DELIMS->index(char) >= 0
 	      && (delchar != "\<BS>" || !executed)
-		const quote_indices = str.Byteidx_quote_positions(getline('.'),
-								  cpos[1] - 1)
+		const quote_indices = str.Bidx_quote_positions(getline('.'),
+							       cpos[1] - 1)
 		if char == "'" || char == '"'
 			if cpos[0] == line('.')
 			   && cpos[1] - 1 == quote_indices[1]
@@ -155,7 +155,7 @@ def Autodeli_eat(delchar: string): string
 			cursor(last_open_pos)
 			var opening_pos = searchpairpos('\V' .. PAIRS[char],
 					'', '\V' .. char, 'bW', '', line('.'))
-			var opening_quotes = str.Byteidx_quote_positions(
+			var opening_quotes = str.Bidx_quote_positions(
 					     getline('.'), opening_pos[1] - 1)
 			if quote_indices == [-1, -1]
 				while opening_pos != [0, 0]
@@ -164,7 +164,7 @@ def Autodeli_eat(delchar: string): string
 						.. PAIRS[char], '', '\V'
 						.. char, 'bW', '', line('.'))
 					opening_quotes =
-					      str.Byteidx_quote_positions(
+					      str.Bidx_quote_positions(
 					      getline('.'), opening_pos[1] - 1)
 				endwhile
 			endif
@@ -234,8 +234,7 @@ def Autodeli_tab(): string
 	const c = csrline[cbidx]
 	const c_is_quote = c == "'" || c == '"'
 
-	if c_is_quote
-	      && str.Byteidx_quote_positions(csrline, cbidx)[1] == cbidx
+	if c_is_quote && str.Bidx_quote_positions(csrline, cbidx)[1] == cbidx
 	   || !c_is_quote && CLOSING_DELIMS->index(c) >= 0
 	      && Matched(cbidx)[0] == line('.')
 		rhs = repeat(RIGHT, cbidx - (col('.') - 1) + 1)
@@ -429,7 +428,7 @@ def Str_matched(argstr: string, idx: number): number
 		return bidx
 	endif
 
-	const quote_indices = str.Byteidx_quote_positions(argstr, idx)
+	const quote_indices = str.Bidx_quote_positions(argstr, idx)
 	const idx_in_string = quote_indices != [-1, -1]
 	if !idx_in_string || str.Char_escaped(argstr, idx)
 		return bidx

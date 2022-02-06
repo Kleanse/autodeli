@@ -1,4 +1,4 @@
-*klen_lib.txt*	For Vim version 8.2	Last change: 2022 Jan 31
+*klen_lib.txt*	For Vim version 8.2	Last change: 2022 Feb 03
 
 			  Library of custom functions
 
@@ -10,13 +10,13 @@ exactly as they appear below.
 2.  Function documentation	    |klen-functions|
 
 ==============================================================================
-1.	Function list				*klen-function-list*
+1.	Function list					*klen-function-list*
 
 Functions are grouped by the file in which they are defined. Enter CTRL-] with
 the cursor over a function name to view it in more detail.
 
 genlib.vim ~
-						*klen-genlib-functions*
+							*klen-genlib-functions*
 List manipulation:
 	klen#genlib#Peek()		gets the last item of a List
 	klen#genlib#Pop()		removes the last item of a List
@@ -28,10 +28,13 @@ Cursor:
 					at the cursor
 
 str.vim ~
-						*klen-string-functions*
+							*klen-string-functions*
+Conversion:
+	klen#str#Screencol2bidx()	returns the byte index of a string
+					corresponding to a screen column
+
 String manipulation:
-	klen#str#Byteidx_quote_positions()
-					returns the byte indices of the
+	klen#str#Bidx_quote_positions()	returns the byte indices of the
 					matching quotes surrounding the given
 					byte index in a string
 	klen#str#Char_escaped()		checks if the character at the given
@@ -84,8 +87,18 @@ klen#genlib#Cursor_char_byte([{prev}: bool [, {pat}: string]]): number
 		 have the same meanings as |klen#genlib#Cursor_char()|.
 		 Composing characters are not counted separately.
 
-					*klen#str#Byteidx_quote_positions()*
-klen#str#Byteidx_quote_positions({str}: string, {idx}: number): list<number>
+					*klen#str#Screencol2bidx()*
+klen#str#Screencol2bidx({str}: string, {screencol}: number): number
+	Expects: {screencol} > 0
+	Ensures: returns the byte index of {str} corresponding to the screen
+		 column {screencol}. If no byte index corresponds to
+		 {screencol}, returns -1. Note that if {screencol} matches a
+		 screen column which is part of all but the last screen column
+		 of a byte index occupying multiple screen columns (i.e., a
+		 <Tab>), that multi-screen-column byte index is returned.
+
+					*klen#str#Bidx_quote_positions()*
+klen#str#Bidx_quote_positions({str}: string, {idx}: number): list<number>
 	Expects: {idx} >= 0
 	Ensures: returns a List indicating the byte indices of the quotation
 		 marks of the string containing the byte index {idx} in the
@@ -177,10 +190,10 @@ klen#str#Get_same_delimiters({str}: string, {delims}: string
 						*klen#str#In_string()*
 klen#str#In_string({str}: string, {idx}: number): bool
 	Expects: 0 <= {idx} < strlen({str})
-	Ensures: an abstraction of |klen#str#Byteidx_quote_positions()|.
+	Ensures: an abstraction of |klen#str#Bidx_quote_positions()|.
 		 Returns true if the given byte index {idx} in {str} is in a
 		 string. This function effectively performs
-		 klen#str#Byteidx_quote_positions({str}, {idx}) != [-1, -1]
+		 klen#str#Bidx_quote_positions({str}, {idx}) != [-1, -1]
 
 						*klen#str#Match_chars()*
 klen#str#Match_chars({expr}: any, {pat}: string,
