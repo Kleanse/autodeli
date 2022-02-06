@@ -191,8 +191,15 @@ def Autodeli_eat(delchar: string): string
 	endwhile
 
 	if !empty(opening_indices) # opening_indices is in descending order.
-		rhs ..= "\<ScriptCmd>Delete_closing(["
-			.. join(opening_indices, ", ") .. "])\<CR>"
+		if delchar =~ "\<C-U>"
+			rhs ..= "\<ScriptCmd>Autodeli_eat_post_ctrl_u(["
+				.. join(opening_indices, ", ") .. "], '"
+				.. getline('.')[: csrpos[2] - 1]
+				   ->substitute("'", "''", "g") .. "')\<CR>"
+		else
+			rhs ..= "\<ScriptCmd>Delete_closing(["
+				.. join(opening_indices, ", ") .. "])\<CR>"
+		endif
 	endif
 	return rhs
 enddef
@@ -305,6 +312,48 @@ enddef
 # }}}
 
 # Helper functions
+
+# Expects: {preline} is the string before the cursor prior to Insert-mode
+#	   CTRL-U being applied.
+# Ensures: like Delete_closing(), but specially handles Insert-mode CTRL-U: the
+#	   byte indices of {indices} are adjusted relative to the cursor's
+#	   expected, pre-auto-indented position before being passed to
+#	   Delete_closing().
+def Autodeli_eat_post_ctrl_u(indices: list<number>, preline: string)
+	# Autodeli_eat_post_ctrl_u() implementation {{{
+	final newidcs = deepcopy(indices)
+	const precol = preline->len()	# Cursor assumed at end of preline
+	const csrcol = col('.')
+	# Normalized column data: values are relative to the first non-blank
+	# characters in the respective strings.
+	const nrmlprecol = precol - matchstr(preline, '\v^\s+')->len()
+	const nrmlcsrcol = csrcol - matchstr(getline('.'), '\v^\s+')->len()
+
+	if nrmlprecol < 1 || nrmlcsrcol < 1
+		# The cursor line began with no non-blank characters before the
+		# cursor or all of such characters were deleted by CTRL-U.
+		newidcs->map('0x7fffffff')
+		if nrmlcsrcol < 1
+			normal ^
+		endif
+	else
+		# Number of characters deleted.
+		const n_del = nrmlprecol - nrmlcsrcol
+		# Difference between where the cursor should be (no automatic
+		# indentation) and the cursor's actual position:
+		#	positive  =>  actual pos right of expected pos
+		#	negative  =>  actual pos left of expected pos
+		const offset = csrcol - (precol - n_del)
+
+		if offset != 0
+			newidcs->map((_, val) => val + offset)
+		endif
+	endif
+
+	Delete_closing(newidcs)
+enddef
+# }}}
+
 def Brace_delete_line()
 	# Brace_delete_line() implementation {{{
 	if autocompleted_multiline_brace == 1 && getline('.') =~ '\v^\s*$'
