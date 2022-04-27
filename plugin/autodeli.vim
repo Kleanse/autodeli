@@ -8,6 +8,7 @@ const Push = genlib.Push
 
 # Vim global plugin for automatically completing bracket delimiters.
 # 2021 Oct 21 - Written by Kenny Lam.
+# Last change:	2022 Apr 27
 
 if exists("g:loaded_autodeli")
       finish
@@ -24,6 +25,7 @@ var autocompleted_multiline_brace = 2
 augroup autodeli
 	autocmd!
 	autocmd InsertLeave * Brace_delete_line()
+	autocmd BufWinEnter * Autodeli_track_buf()
 augroup END
 # }}}
 
@@ -417,7 +419,7 @@ def Define_default_mappings()
 	# Define_default_mappings() implementation {{{
 	for [c, plug_name] in PLUG_NAMES->items()
 		if !hasmapto(plug_name, 'i')
-			execute 'imap ' .. c .. ' ' .. plug_name
+			execute 'imap <buffer>' .. c .. ' ' .. plug_name
 		endif
 	endfor
 enddef
@@ -516,5 +518,151 @@ def Str_matched(argstr: string, idx: number): number
 enddef
 # }}}
 
+def Remove_default_mappings()
+	# Remove_default_mappings() implementation {{{
+	for [lhs, plug_name] in PLUG_NAMES->items()
+		if maparg(lhs, 'i') == plug_name
+			execute 'iunmap <buffer>' lhs
+		endif
+	endfor
+enddef
+# }}}
+
+
+# Autocommand functions {{{
+# Expects: none
+# Ensures: adds the current buffer to PLUG_ON and applies Autodeli to it if
+#	   Autodeli was enabled in the previous buffer (i.e., the alternate
+#	   file).
+def Autodeli_track_buf()
+	# Autodeli_track_buf() implementation {{{
+	const curbuf = bufnr()
+	if PLUG_ON->has_key(curbuf)
+		return
+	endif
+	const prevbuf = bufnr("#")
+	PLUG_ON[curbuf] = (PLUG_ON->has_key(prevbuf)) ? PLUG_ON[prevbuf]
+						      : false
+	if PLUG_ON[curbuf]
+		Autodeli on
+	else
+		Autodeli off
+	endif
+enddef
+# }}}
+# }}}
+
+
+# Commands {{{
+# Dictionary relating the valid arguments for the command "Autodeli" with their
+# descriptions.
+const ARGS_DESC = {
+	'all': 'Defines the default Autodeli mappings for all buffers.',
+	'help': 'Prints this "help" table.',
+	'none': 'Removes the default Autodeli mappings for all buffers.',
+	'off': 'Removes the default Autodeli mappings for the current buffer.',
+	'on': 'Defines the default Autodeli mappings for the current buffer.',
+}
+
+# Dictionary relating the valid arguments for the command "Autodeli" with the
+# commands that implement their behaviors. These commands use legacy script
+# syntax and are executed at runtime via ":execute".
+const ARGS_CMD = {
+	'on': "call Define_default_mappings()",
+	'off': "call Remove_default_mappings()",
+	'all': "bufdo Define_default_mappings()",
+	'none': "bufdo Remove_default_mappings()",
+}
+
+# A dictionary of formatted strings that compose a table associating the valid
+# arguments for "Autodeli" and their descriptions.
+final HELP_TABLE = {
+	header: "",	# The table's header.
+	fields: [],	# A List of Lists: each sublist represents a record,
+			# and the items of such a sublist represent the fields
+			# in that row.
+}
+
+# Dictionary associating buffer numbers with the state of the buffer-local
+# Autodeli (on or off).
+final PLUG_ON = {}
+
+# Ensures: Initializes the items of HELP_TABLE. This function need only be
+#	   called once.
+def Generate_help_table()
+	# Generate_help_table() implementation {{{
+	const titles = ["Command", "Description"] # Column titles.
+	HELP_TABLE.header = titles[0]
+	for i in range(1, titles->len() - 1)
+		HELP_TABLE.header ..= "\t" .. titles[i]
+	endfor
+	# Character width of the fields under Column 0 (i.e., the leftmost text
+	# column).
+	const c0w = max([ARGS_DESC->mapnew((k, v) => k->len())->max(),
+			titles[0]->len()])
+	for [cmd, desc] in ARGS_DESC->items()->sort()
+		HELP_TABLE.fields->add([])
+		HELP_TABLE.fields[-1] += [cmd .. repeat(' ', c0w - cmd->len()),
+					  desc]
+	endfor
+enddef
+# }}}
+
+Generate_help_table()
+
+# Ensures: executes the command given to the command "Autodeli".
+def Autodeli_evaluate(arg: string)
+	# Autodeli_evaluate() implementation {{{
+	const argv = arg->split()
+	if argv->empty()
+		# Echo whether Autodeli is on for the current buffer {{{
+		echo (PLUG_ON[bufnr()]) ? "  autodeli" : "noautodeli"
+		# }}}
+	elseif argv[0] == "help"
+		# Print help table {{{
+		const indent = repeat(' ', 4)	# Initial table indent.
+		echohl Title
+		echo indent .. HELP_TABLE.header
+		echohl None
+		for r in HELP_TABLE.fields
+			echohl Identifier
+			echo indent .. r[0] .. "\t"
+			echohl None
+			echon r[1]
+		endfor
+		# }}}
+	elseif ARGS_CMD->has_key(argv[0])
+		# Execute argument {{{
+	try
+		execute ARGS_CMD[argv[0]]
+		if argv[0] == "on" || argv[0] == "all"
+			PLUG_ON[bufnr()] = true
+		elseif argv[0] == "off" || argv[0] == "none"
+			PLUG_ON[bufnr()] = false
+		endif
+	catch /^Vim(bufdo):E37:/	# No write since last change.
+		echohl ErrorMsg
+		echo "Autodeli:" argv[0]
+			.. ": Some buffers have unsaved changes."
+		echohl None
+	endtry
+		# }}}
+	else
+		echohl ErrorMsg
+		echo "Autodeli: unrecognized command:" argv[0]
+		echohl None
+	endif
+enddef
+# }}}
+
+# Command to interact with this plugin, Autodeli.
+command! -nargs=? Autodeli {
+	Autodeli_evaluate(<q-args>)
+}
+# }}}
+
+
 Define_plug_mappings()
-Define_default_mappings()
+if exists("g:startup_autodeli")
+	Autodeli on
+endif
