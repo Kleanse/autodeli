@@ -8,7 +8,7 @@ const Push = genlib.Push
 
 # Vim global plugin for automatically completing bracket delimiters.
 # 2021 Oct 21 - Written by Kenny Lam.
-# Last change:	2022 Apr 27
+# Last change:	2022 May 05
 
 if exists("g:loaded_autodeli")
       finish
@@ -589,6 +589,18 @@ final HELP_TABLE = {
 # Dictionary associating buffer numbers with the state of the buffer-local
 # Autodeli (on or off).
 final PLUG_ON = {}
+
+# Interface function that allows the user to query the state of Autodeli in an
+# expression.
+# Expects: none
+# Ensures: returns true if Autodeli is enabled for buffer number {bufn}. By
+#	   default, {bufn} is the current buffer's number. If {bufn} is not
+#	   tracked by Autodeli, returns false.
+def g:Autodeli_on(bufn = bufnr()): bool
+	# Autodeli_on implementation {{{
+	return (PLUG_ON->has_key(bufn)) ? PLUG_ON[bufn] : false
+enddef
+# }}}
 
 # Expects: none
 # Ensures: initializes the items of HELP_TABLE. This function need only be
