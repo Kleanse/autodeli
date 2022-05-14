@@ -21,6 +21,7 @@ g:loaded_autodeli = 1
 # this case will delete the cursor line if it is blank.
 var autocompleted_multiline_brace = 2
 
+
 # Autocommands {{{
 augroup autodeli
 	autocmd!
@@ -28,6 +29,7 @@ augroup autodeli
 	autocmd BufWinEnter * Autodeli_track_buf()
 augroup END
 # }}}
+
 
 # Dictionary that contains the delimiters to consider for autocompletion and
 # facilitates identification of a delimiter's corresponding delimiter, e.g.,
@@ -465,6 +467,7 @@ def Define_plug_mappings()
 enddef
 # }}}
 
+# Expects: none
 # Ensures: returns the byte index of the unescaped delimiter matching that
 #	   found at {idx} in {argstr} if both delimiters reside in or, for
 #	   quotes, delimit the same string (see autodeli.txt for the definition
@@ -587,7 +590,8 @@ final HELP_TABLE = {
 # Autodeli (on or off).
 final PLUG_ON = {}
 
-# Ensures: Initializes the items of HELP_TABLE. This function need only be
+# Expects: none
+# Ensures: initializes the items of HELP_TABLE. This function need only be
 #	   called once.
 def Generate_help_table()
 	# Generate_help_table() implementation {{{
@@ -610,6 +614,7 @@ enddef
 
 Generate_help_table()
 
+# Expects: none
 # Ensures: executes the command given to the command "Autodeli".
 def Autodeli_evaluate(arg: string)
 	# Autodeli_evaluate() implementation {{{
