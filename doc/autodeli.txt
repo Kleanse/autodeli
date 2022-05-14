@@ -1,21 +1,79 @@
-*autodeli.txt*	For Vim version 8.2	Last change: 2022 Jan 28
+*autodeli.txt*	For Vim version 8.2	Last change: 2022 May 15
 
 		    AUTODELI DOCUMENTATION - by Kenny Lam
 
 	      Automatically insert and delete matching delimiters
 
-This document describes the functions defined in autodeli.vim and when
-matching delimiters are completed and deleted automatically.
+This document describes how to use this plugin, Autodeli, the functions
+defined in autodeli.vim, and when matching delimiters are completed and
+deleted automatically.
 
-1.  Function list		    |autodeli-function-list|
-2.  Function documentation	    |autodeli-functions|
-3.  Technical details		    |autodeli-verbose|
-    3.1 Definitions and Notations	|autodeli-definitions|
-    3.2 Behavior			|autodeli-behavior|
-    3.3 Functions			|autodeli-function-details|
+Only the first section is a requisite reading. It is a short introduction on
+how to use this plugin. The remaining sections are optional: they can be read
+to learn about the functions that Autodeli defined or how Autodeli works.
+
+1.  Using Autodeli		    |autodeli-use|
+2.  Function list		    |autodeli-function-list|
+3.  Function documentation	    |autodeli-functions|
+4.  Technical details		    |autodeli-verbose|
+    4.1 Definitions and Notations	|autodeli-definitions|
+    4.2 Behavior			|autodeli-behavior|
+    4.3 Functions			|autodeli-function-details|
 
 ==============================================================================
-1.	Function list				*autodeli-function-list*
+1.	Using Autodeli				*autodeli-use*
+
+PRELIMINARIES
+
+Autodeli uses Vim9 script. Thus, unless otherwise stated, all code snippets in
+this document assume Vim9 script syntax.
+
+Autodeli requires the functions supplied by klenlib to work. Obtain a copy of
+klenlib at
+
+	https://github.com/kleanse/klenlib
+
+before attempting any of the subsequent parts in this section.
+
+When this document uses the phrases "autocomplete delimiters" and "delimiters
+completed automatically", it means that the delimiters are closed
+automatically.
+
+GETTING STARTED
+
+To begin using Autodeli, enter the following command:
+
+	Autodeli on
+
+That's it. Common bracket delimiters, such as parentheses and quotes, will be
+completed automatically. You may test if Autodeli is on by invoking
+":Autodeli" without any arguments. Pass "help" to see the arguments the
+command accepts.
+
+DISABLING
+
+To disable the Autodeli plugin, set "g:loaded_autodeli" in your vimrc file:
+
+	g:loaded_autodeli = 1
+
+Autodeli cannot be re-enabled from within Vim with this method.
+
+To disable Autodeli only for the current buffer, enter
+
+	Autodeli off
+
+STARTUP BEHAVIOR
+
+By default, Autodeli is disabled. To enable it when Vim starts, set the
+variable "g:startup_autodeli" in your vimrc file:
+
+	g:startup_autodeli = 1
+
+This variable tells Autodeli to define its default mappings for the first
+buffer opened.
+
+==============================================================================
+2.	Function list				*autodeli-function-list*
 
 Auto-completion:
 	Autocomplete_delimiters()	insert a pair of delimiters at once
@@ -38,7 +96,7 @@ Overload:
 	Autodeli_tab()			overload <Tab> for Insert mode
 
 ==============================================================================
-2.	Function documentation			*autodeli-functions*
+3.	Function documentation			*autodeli-functions*
 
 See |autodeli-function-list| for a lexically ordered list of categories, each
 of which contains functions sorted in the same fashion. Also see
@@ -207,6 +265,16 @@ auto-completed pair undoes the entire Insert command, which is the default
 behavior of Vim.
 
 DELIMITERS IN DETAIL
+
+The following pairs of delimiters are supported:
+
+	()	Parentheses
+	[]	Brackets
+	{}	Braces
+	''	Single quotes
+	""	Double quotes
+
+When are these delimiters completed automatically are discussed in turn.
 
 Parentheses and Brackets ~
 
