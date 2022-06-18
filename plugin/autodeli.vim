@@ -8,7 +8,7 @@ const Push = genlib.Push
 
 # Vim global plugin for automatically completing bracket delimiters.
 # 2021 Oct 21 - Written by Kenny Lam.
-# Last change:	2022 May 05
+# Last change:	2022 Jun 18
 
 if exists("g:loaded_autodeli")
       finish
@@ -27,6 +27,7 @@ augroup autodeli
 	autocmd!
 	autocmd InsertLeave * Brace_delete_line()
 	autocmd BufWinEnter * Autodeli_track_buf()
+	autocmd BufDelete * Autodeli_drop_buf()
 augroup END
 # }}}
 
@@ -533,6 +534,17 @@ enddef
 
 
 # Autocommand functions {{{
+# Expects: <abuf> is set by the autocommand event "BufDelete".
+# Ensures: removes the buffer being deleted from PLUG_ON.
+def Autodeli_drop_buf()
+	# Autodeli_drop_buf() implementation {{{
+	const btbd = expand("<abuf>")->str2nr()	# Buffer to be deleted.
+	if PLUG_ON->has_key(btbd)
+		PLUG_ON->remove(btbd)
+	endif
+enddef
+# }}}
+
 # Expects: none
 # Ensures: adds the current buffer to PLUG_ON and applies Autodeli to it if
 #	   Autodeli was enabled in the previous buffer (i.e., the alternate
