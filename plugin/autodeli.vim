@@ -8,18 +8,17 @@ const Push = genlib.Push
 
 # Vim global plugin for automatically completing bracket delimiters.
 # 2021 Oct 21 - Written by Kenny Lam.
-# Last change:	2022 Jun 18
+# Last change:	2022 Jun 24
 
 if exists("g:loaded_autodeli")
       finish
 endif
 g:loaded_autodeli = 1
 
-# Dirty hack (why is this variable not a Boolean?) used for the multi-line
-# outcomes of brace autocompletion. The value 1 indicates the current Insert
-# mode experienced a multi-line brace autocompletion; leaving Insert mode in
-# this case will delete the cursor line if it is blank.
-var autocompleted_multiline_brace = 2
+# Line number of the blank line created from a multi-line brace autocompletion.
+# It helps decide whether to delete the blank line automatically when leaving
+# Insert mode.
+var multiline_brace_blank_lnum = 0
 
 
 # Autocommands {{{
@@ -116,7 +115,7 @@ def Autodeli_brace(): string
 		const n = str.Match_chars(csrline, '\s', col('.') - 1,
 					  csrline->len())
 		rhs = repeat("\<Del>", n) .. rhs .. "\<CR>}\<BS>\<C-O>O"
-		autocompleted_multiline_brace = 0
+		      .. "\<ScriptCmd>Brace_multiline_post()\<CR>"
 	elseif csrline =~ '\v^\s*%(struct|class|enum)%(\s+|$)'
 		rhs ..= RIGHT .. ";" .. repeat(LEFT, 2)
 	endif
@@ -225,7 +224,7 @@ def Autodeli_enter(): string
 		const n = str.Match_chars(getline('.'), '\s', prevc_bidx + 1,
 					  col('.') - 1)
 		rhs = repeat("\<BS>", n) .. "\<CR>}\<BS>\<C-O>O"
-		autocompleted_multiline_brace = 0
+		      .. "\<ScriptCmd>Brace_multiline_post()\<CR>"
 	endif
 	return rhs
 enddef
@@ -361,10 +360,21 @@ enddef
 
 def Brace_delete_line()
 	# Brace_delete_line() implementation {{{
-	if autocompleted_multiline_brace == 1 && getline('.') =~ '\v^\s*$'
+	if getcurpos()[1] == multiline_brace_blank_lnum
+	   && getline('.') =~ '\v^\s*$'
 		delete _
 	endif
-	++autocompleted_multiline_brace
+	multiline_brace_blank_lnum = 0
+enddef
+# }}}
+
+# Expects: a multi-line brace autocompletion occurred immediately before this
+#	   function is called.
+# Ensures: sets multiline_brace_blank_lnum to indicate a multi-line brace
+#	   autocompletion occurred.
+def Brace_multiline_post()
+	# Brace_multiline_post() implementation {{{
+	multiline_brace_blank_lnum = getcurpos()[1]
 enddef
 # }}}
 
