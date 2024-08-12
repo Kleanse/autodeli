@@ -1,9 +1,9 @@
 vim9script
-import autoload 'klen/genlib.vim'
+import autoload './utils.vim'
 
-const Peek = genlib.Peek
-const Pop = genlib.Pop
-const Push = genlib.Push
+const Peek = utils.Peek
+const Pop = utils.Pop
+const Push = utils.Push
 
 # Library of string functions.
 # Documentation supplied in klen_lib.txt.

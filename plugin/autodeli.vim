@@ -1,14 +1,14 @@
 vim9script noclear
-import autoload 'klen/genlib.vim'
-import autoload 'klen/str.vim'
+import autoload '../lib/str.vim'
+import autoload '../lib/utils.vim'
 
-const Peek = genlib.Peek
-const Pop = genlib.Pop
-const Push = genlib.Push
+const Peek = utils.Peek
+const Pop = utils.Pop
+const Push = utils.Push
 
 # Vim global plugin for automatically completing bracket delimiters.
 # 2021 Oct 21 - Written by Kenny Lam.
-# Last change:	2022 Jun 24
+# Last change:	2024 Aug 12
 
 if exists("g:loaded_autodeli")
       finish
@@ -86,7 +86,7 @@ def Autocomplete_quotes(quote: string): string
 
 	const csrline = getline('.')
 	const csridx = col('.') - 1
-	const cbidx = genlib.Cursor_char_byte(false, '\S')
+	const cbidx = utils.Cursor_char_byte(false, '\S')
 	const c = (cbidx == -1) ? '' : csrline[cbidx]
 	const csr_quotes = str.Bidx_quote_positions(csrline[: cbidx],
 						       csridx)
@@ -95,7 +95,7 @@ def Autocomplete_quotes(quote: string): string
 	if c == quote && cbidx == csr_quotes[1]
 		rhs = repeat("\<Del>", cbidx - csridx) .. RIGHT
 	elseif (csridx == csr_quotes[0] || !csr_in_string)
-			&& genlib.Cursor_char(true) =~ '\W\|^$'
+			&& utils.Cursor_char(true) =~ '\W\|^$'
 		rhs = Autocomplete_delimiters(quote, quote)
 	endif
 	return rhs
@@ -216,11 +216,11 @@ def Autodeli_enter(): string
 		return rhs
 	endif
 
-	const nextc = genlib.Cursor_char(false, '\S')
-	const prevc = genlib.Cursor_char(true, '\S')
+	const nextc = utils.Cursor_char(false, '\S')
+	const prevc = utils.Cursor_char(true, '\S')
 
 	if prevc == '{' && nextc == '}'
-		const prevc_bidx = genlib.Cursor_char_byte(true, '\S')
+		const prevc_bidx = utils.Cursor_char_byte(true, '\S')
 		const n = str.Match_chars(getline('.'), '\s', prevc_bidx + 1,
 					  col('.') - 1)
 		rhs = repeat("\<BS>", n) .. "\<CR>}\<BS>\<C-O>O"
@@ -238,7 +238,7 @@ def Autodeli_tab(): string
 	endif
 
 	const csrline = getline('.')
-	const cbidx = genlib.Cursor_char_byte(false, '\S')
+	const cbidx = utils.Cursor_char_byte(false, '\S')
 	if cbidx == -1
 		return rhs
 	endif
