@@ -8,7 +8,7 @@ const Push = utils.Push
 
 # Vim global plugin for automatically completing bracket delimiters.
 # 2021 Oct 21 - Written by Kenny Lam.
-# Last change:	2024 Aug 12
+# Last change:	2024 Oct 09
 
 if exists("g:loaded_autodeli")
       finish
@@ -325,6 +325,11 @@ enddef
 #	   Delete_closing().
 def Autodeli_eat_post_ctrl_u(indices: list<number>, preline: string)
 	# Autodeli_eat_post_ctrl_u() implementation {{{
+	if !&cindent
+		Delete_closing(indices)
+		return
+	endif
+
 	final newidcs = deepcopy(indices)
 	const precol = preline->len()	# Cursor assumed at end of preline
 	const csrcol = col('.')
