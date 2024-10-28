@@ -1,4 +1,4 @@
-*autodeli.txt*	For Vim version 8.2	Last change: 2022 May 15
+*autodeli.txt*	For Vim version 8.2	Last change: 2024 Oct 28
 
 		    AUTODELI DOCUMENTATION - by Kenny Lam
 
@@ -27,13 +27,6 @@ PRELIMINARIES
 
 Autodeli uses Vim9 script. Thus, unless otherwise stated, all code snippets in
 this document assume Vim9 script syntax.
-
-Autodeli requires the functions supplied by klenlib to work. Obtain a copy of
-klenlib at
-
-	https://github.com/kleanse/klenlib
-
-before attempting any of the subsequent parts in this section.
 
 When this document uses the phrases "autocomplete delimiters" and "delimiters
 completed automatically", it means that the delimiters are closed
@@ -75,6 +68,7 @@ buffer opened.
 ==============================================================================
 2.	Function list				*autodeli-function-list*
 
+autodeli.vim ~
 Auto-completion:
 	Autocomplete_delimiters()	insert a pair of delimiters at once
 	Autocomplete_quotes()		insert a pair of quotes at once if the
@@ -94,6 +88,39 @@ Overload:
 	Autodeli_brace()		overload { for Insert mode
 	Autodeli_enter()		overload <CR> for Insert mode
 	Autodeli_tab()			overload <Tab> for Insert mode
+
+str.vim ~
+Conversion:
+	str.Screencol2bidx()		returns the byte index of a string
+					corresponding to a screen column
+
+String manipulation:
+	str.Bidx_quote_positions()	returns the byte indices of the
+					matching quotes surrounding the given
+					byte index in a string
+	str.Char_escaped()		checks if the character at the given
+					byte index is escaped
+	str.Get_delimiters()		gets the byte indices of the specified
+					delimiters in a string
+	str.Get_same_delimiters()	gets the byte index of the specified
+					delimiter in a string whose opening
+					and closing notations are the same
+	str.In_string()			checks if the given byte index is in a
+					string
+	str.Match_chars()		checks whether all characters between
+					two byte indices match the given
+					pattern
+
+utils.vim ~
+List manipulation:
+	utils.Peek()			gets the last item of a List
+	utils.Pop()			removes the last item of a List
+	utils.Push()			adds an item to the end of a List
+
+Cursor:
+	utils.Cursor_char()		gets the character at the cursor
+	utils.Cursor_char_byte()	gets the byte index of the character
+					at the cursor
 
 ==============================================================================
 3.	Function documentation			*autodeli-functions*
@@ -208,6 +235,189 @@ Skip_closing({closing}: string): string		*Skip_closing()*
 		 typing {closing} when the cursor is between the delimiters
 		 that include {closing} |autodeli-closing-delimiter|. This
 		 function only works in Insert mode.
+
+						*utils.Cursor_char()*
+utils.Cursor_char([{prev}: bool [, {pat}: string]]): string
+	Expects: none
+	Ensures: returns the character at the cursor. If such a character does
+		 not exist, returns an empty string. If {prev} is true,
+		 returns the character before the cursor instead. If {pat} is
+		 specified, returns the first character that matches {pat}
+		 after the cursor--before if {prev} is true. Composing
+		 characters are ignored.
+
+						*utils.Cursor_char_byte()*
+utils.Cursor_char_byte([{prev}: bool [, {pat}: string]]): number
+	Expects: none
+	Ensures: Like |utils.Cursor_char()|, but returns the byte index
+		 of the character at the cursor. If such a character does not
+		 exist, returns -1. The optional parameters {prev} and {pat}
+		 have the same meanings as |utils.Cursor_char()|.
+		 Composing characters are not counted separately.
+
+utils.Peek({stack}: list<any>): any		*utils.Peek()*
+	Expects: !empty({stack})
+	Ensures: returns the last item of {stack}.
+
+utils.Pop({stack}: list<any>)			*utils.Pop()*
+	Expects: !empty({stack})
+	Ensures: removes the last item of {stack}.
+
+utils.Push({stack}: list<any>, {item}: any)	*utils.Push()*
+	Expects: none
+	Ensures: adds {item} to the end of {stack}.
+
+						*str.Bidx_quote_positions()*
+str.Bidx_quote_positions({str}: string, {idx}: number): list<number>
+	Expects: {idx} >= 0
+	Ensures: returns a List indicating the byte indices of the quotation
+		 marks of the string containing the byte index {idx} in the
+		 string {str}. If an unmatched quote precedes {idx}, returns a
+		 List containing that quote's byte index and a -1. This
+		 function can be used to check if {idx} is within a string,
+		 which may be delimited with single or double quotes
+		 |str.Get_same_delimiters()|. If {idx} is not in a
+		 string, returns [-1, -1]. If {idx} >= strlen({str}), the
+		 function just looks for the unmatched quote.
+			Index	Quote ~
+			0	opening
+			1	closing
+
+		 This function has one unique case: if {idx} corresponds to
+		 the quote of a string, a List with the quote's and its
+		 matching quote's byte indices is returned; alternatively, a
+		 List with the quote's byte index and a -1 is returned if the
+		 quote is unmatched.
+
+						*str.Char_escaped()*
+str.Char_escaped({str}: string, {idx}: number [, {char}: string]): bool
+	Expects: 0 <= {idx} < strlen({str})
+	Ensures: returns true if the character at the byte index {idx} in
+		 {str} is escaped with a {char}, i.e., an odd number of
+		 {char}s precedes the character. By default, {char} is a
+		 backslash; {char} may be more than one character.
+
+						*str.Get_delimiters()*
+str.Get_delimiters({str}: string, {delims}: list<string>
+			[, {unmatched}: bool]): list<list<number>>
+	Expects: len({delims}) == 2
+	Ensures: returns a List of two Lists indicating the starting byte
+		 indices of the matched delimiters given by {delims} in
+		 {str}. NOTE: If the opening and closing delimiters are the
+		 same, use |str.Get_same_delimiters()|. The first List
+		 contains the indices of matched opening delimiters, while the
+		 second List contains the indices of matched closing
+		 delimiters. Either List may be empty, and the Lists are
+		 associative. The Lists are ordered from the innermost to the
+		 outermost delimiter pair. If {unmatched} is true, returns a
+		 List of four Lists: the first two Lists contain the byte
+		 indices of the matched delimiters, while the last two Lists
+		 contain the byte indices of the unmatched delimiters.
+			Index	Delimiter ~
+			0	opening
+			1	closing
+		 If {unmatched} is true,
+			2	unmatched opening
+			3	unmatched closing
+
+		 {delims} must contain two Strings: the first String is the
+		 opening delimiter, and the second String is the closing
+		 delimiter.
+
+						*str.Get_same_delimiters()*
+str.Get_same_delimiters({str}: string, {delims}: string
+			     [, {unmatched}: bool]): list<any>
+	Expects: none
+	Ensures: returns a List containing the starting byte indices of the
+		 matched delimiters specified by {delim} in {str}. Naturally,
+		 this List is ordered. If no such delimiters exist, returns an
+		 empty List. If {unmatched} is true, returns a List of two
+		 Lists: the first contains the matched delimiters, and the
+		 second has at most one element, which is the starting byte
+		 index of the unmatched {delim}. If {delim} is a quote
+		 (a ' or "), ignores escaped instances of {delim} in a string;
+		 instances of {delim} in a string delimited by the alternative
+		 quotes, i.e., single quotes between double quotes; and
+		 instances of {delim} immediately after a word character
+		 outside a string. A string can be delimited by single or
+		 double quotes.
+			Index	Delimiter type ~
+			0	Matched
+		 If {unmatched} is true,
+			1	Unmatched
+
+		 Examples: >
+			:echo str.Get_same_delimiters("\"'Twas\"", "'",
+						\ v:true)
+<		 returns [[], []]; >
+			:echo str.Get_same_delimiters("'\\''", "'",
+						\ v:true)
+<		 returns [[0, 3], []]; and >
+			:echo str.Get_same_delimiters("'\"'A \"start",
+						\ '"', v:true)
+<		 returns [[], [5]].
+
+						*str.In_string()*
+str.In_string({str}: string, {idx}: number): bool
+	Expects: 0 <= {idx} < strlen({str})
+	Ensures: an abstraction of |str.Bidx_quote_positions()|.
+		 Returns true if the given byte index {idx} in {str} is in a
+		 string. This function effectively performs
+		 str.Bidx_quote_positions({str}, {idx}) != [-1, -1]
+
+						*str.Match_chars()*
+str.Match_chars({expr}: any, {pat}: string,
+		     {start}: any, {end}: any): number
+	Expects: if type({expr}) == v:t_string,
+			0 <= {start} < len({expr}) && 0 <= {end} < len({expr})
+			&& {start} <= {end}
+		 else if type({expr}) == v:t_list,
+			if type({start}) == v:t_list,
+				len({start}) == 2
+				&& 0 <= {start}[0] < len({expr})
+				&& 0 <= {start}[1] < len({expr}[{start}[0]])
+			if type({end}) == v:t_list,
+				len({end}) == 2
+				&& 0 <= {end}[0] < len({expr})
+				&& 0 <= {end}[1] < len({expr}[{end}[0]])
+			if type({start}) == v:t_list
+			   && type({end}) == v:t_list,
+				{start}[0] <= {end}[0]
+				&& {start}[1] <= {end}[1]
+	Ensures: returns the number of characters, including new lines,
+		 between the byte indices {start} (included) and {end}
+		 (excluded) in the string {expr} if all characters match
+		 {pat}. For example, >
+			:echo str.Match_chars('foo()', '.', 1, 3)
+<		 returns 2 (the characters checked are "oo").
+
+		 If {expr} is a List, {start} and {end} may also appear as
+		 Lists of the form
+			[{lidx}, {byteidx}]
+		 In this case, the characters after {start}, before {end}, and
+		 between the line indices of {start} and {end} in {expr} are
+		 matched with {pat}. Keeping {start} as a number will
+		 implicitly set {lidx} to zero, i.e., the index of the first
+		 string in {expr}. Similarly, if {end} is a number, its {lidx}
+		 is set to the length of {expr} minus one: the last string in
+		 {expr}.
+
+		 If 'delcombine' is set, composing characters are counted
+		 separately. Otherwise, they are ignored.
+
+		 If {end} appears before {start} or a character does not match
+		 {pat}, returns -1. This function can be used to check whether
+		 certain characters lie between {start} and {end}.
+
+						*str.Screencol2bidx()*
+str.Screencol2bidx({str}: string, {screencol}: number): number
+	Expects: {screencol} > 0
+	Ensures: returns the byte index of {str} corresponding to the screen
+		 column {screencol}. If no byte index corresponds to
+		 {screencol}, returns -1. Note that if {screencol} matches a
+		 screen column which is part of all but the last screen column
+		 of a byte index occupying multiple screen columns (i.e., a
+		 <Tab>), that multi-screen-column byte index is returned.
 
 ==============================================================================
 3.	Technical details			*autodeli-verbose*
