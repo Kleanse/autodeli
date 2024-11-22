@@ -1,21 +1,14 @@
-*autodeli.txt*	For Vim version 8.2	Last change: 2024 Oct 28
+*autodeli.txt*	For Vim version 9.1.  Last change: 2024 Nov 22
 
-		    AUTODELI DOCUMENTATION - by Kenny Lam
+			    AUTODELI DOCUMENTATION
 
-	      Automatically insert and delete matching delimiters
+	     Automatically insert and delete matching delimiters
 
-This document describes how to use this plugin, Autodeli, the functions
-defined in autodeli.vim, and when matching delimiters are completed and
-deleted automatically.
 
-Only the first section is a requisite reading. It is a short introduction on
-how to use this plugin. The remaining sections are optional: they can be read
-to learn about the functions that Autodeli defined or how Autodeli works.
-
-1.  Using Autodeli		    |autodeli-use|
-2.  Function list		    |autodeli-function-list|
-3.  Function documentation	    |autodeli-functions|
-4.  Technical details		    |autodeli-verbose|
+1. Using Autodeli		    |autodeli-use|
+2. Function list		    |autodeli-function-list|
+3. Function documentation	    |autodeli-functions|
+4. Technical details		    |autodeli-verbose|
     4.1 Definitions and Notations	|autodeli-definitions|
     4.2 Behavior			|autodeli-behavior|
     4.3 Functions			|autodeli-function-details|
