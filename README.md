@@ -2,7 +2,7 @@
 
 Simple plugin for completing bracket delimiters automatically in Vim.
 
-<https://github.com/user-attachments/assets/fbdd021c-9b89-429f-a984-bcd19d85aee2>
+![demo](https://github.com/user-attachments/assets/f38b2587-5b1f-4e30-b682-95151eac838f)
 
 ## What is it?
 
